@@ -3,7 +3,7 @@ title: "VSCodeとOpenOCD/GDBでRaspberry Pi Picoをデバッグする"
 emoji: "🛠️"
 type: "tech"
 topics: ["raspberrypi", "pico", "vscode", "gdb", "openocd"]
-published: false
+published: true
 ---
 
 # はじめに
@@ -57,23 +57,25 @@ VSCodeの拡張機能画面（`Ctrl+Shift+X`）で `Cortex-Debug` を検索し�
 ```text
 VSCode
   └─ Cortex-Debug
-       ├─ GDB（arm-none-eabi-gdb）
-       │    └─ GDB Remote Protocol
-       └─ OpenOCD
-            └─ CMSIS-DAP
-                 └─ SWD
-                      └─ Raspberry Pi Pico W
+       └─ GDB（arm-none-eabi-gdb）
+            └─ GDB Remote Protocol
+                 └─ OpenOCD
+                      └─ CMSIS-DAP
+                           └─ SWD
+                                └─ Raspberry Pi Pico W
 ```
 
-これまで手動で実行していたOpenOCDの起動やGDBの接続を、Cortex-Debugに任せます。
+Cortex-DebugがGDBとOpenOCDの起動・接続を管理します。
 
-OpenOCDとGDBの役割は変わりません。変わるのは、それらを起動・操作する方法です。
+これまで手動で起動・接続していたGDBとOpenOCDを、今回はCortex-Debugが自動的に起動・接続します。
 
 ## launch.jsonを作成する
 
-VSCodeでは、デバッグ構成を `.vscode/launch.json` に記述します。
+VSCodeでは、ワークスペース固有の設定を `.vscode` フォルダに保存します。デバッグの設定には `launch.json` というファイルを使用します。
 
-今回はCortex-DebugがOpenOCDを起動する構成を使用します。
+今回は、Cortex-DebugがOpenOCDとGDBを起動・接続する構成を設定します。
+
+VSCodeで `interface_trykernel` フォルダを開き、`.vscode/launch.json` を作成します。
 
 ```json
 {
@@ -86,6 +88,7 @@ VSCodeでは、デバッグ構成を `.vscode/launch.json` に記述します。
             "servertype": "openocd",
             "cwd": "${workspaceFolder}",
             "executable": "${workspaceFolder}/part_5/build/trykernel.elf",
+            "gdbPath": "arm-none-eabi-gdb",
             "device": "RP2040",
             "interface": "swd",
             "configFiles": [
@@ -102,48 +105,51 @@ VSCodeでは、デバッグ構成を `.vscode/launch.json` に記述します。
 }
 ```
 
-<!-- TODO: ワークスペースのルート、Cortex-Debugのバージョン、設定項目、起動動作を実機で確認する。上記は検証前の暫定設定。 -->
-
-ここでは、主に次の項目を指定しています。
+主な設定項目は次のとおりです。
 
 | 項目 | 内容 |
 |---|---|
 | `type` | Cortex-Debugを使用する |
 | `servertype` | OpenOCDを使用する |
 | `executable` | デバッグ情報を含むELFファイル |
+| `gdbPath` | 使用するGDBの実行ファイル |
 | `configFiles` | CMSIS-DAPとRP2040のOpenOCD設定 |
 | `serverArgs` | OpenOCDへ渡す追加引数 |
-| `runToEntryPoint` | 起動後に停止させる関数 |
+| `runToEntryPoint` | 起動後に停止させる関数（`main`） |
 
 なお、OpenOCDをPowerShellから手動起動し、VSCodeから接続する構成も可能です。今回は、Cortex-DebugにOpenOCDの起動も任せる構成を使用します。
 
+---
+
 # VSCodeからデバッグを開始する
 
-VSCodeでTry Kernelのワークスペースを開き、デバッグ構成「Try Kernel (OpenOCD)」を選択します。
+VSCodeでTry Kernelのワークスペースを開き、「実行とデバッグ」（`Ctrl+Shift+D`）からデバッグ構成「Try Kernel (OpenOCD)」を選択します。
 
-`F5` を押すとデバッグが開始されます。
+`F5` を押すと、Cortex-DebugがOpenOCDとGDBを起動し、Raspberry Pi Pico Wへの接続を開始します。
 
-Cortex-DebugがOpenOCDとGDBを起動し、Raspberry Pi Pico Wへ接続します。
+今回の環境では、`kernel/inittsk.c` が自動的に開かれ、`main` 関数の31行目で停止しました。これは launch.json の runToEntryPoint に main を指定しているためです。
 
-<!-- TODO: 実機で起動確認。mainで停止するか、起動ログ、表示されるソースを確認する。 -->
+<img src="/images/pico-vscode-cortex-debug/vscode-debug-start.png"
+     alt="VSCodeでTry Kernelのmain関数に停止した画面"
+     width="700">
 
-<!-- TODO: デバッグ開始後のVSCode画面を掲載 -->
+ソースコード上の黄色い矢印と行の強調表示で、現在の実行位置を確認できます。
 
-ここで、従来のGDB記事との違いを確認できます。
-
-これまではPowerShellでOpenOCDを起動し、GDBから `target remote localhost:3333` を実行していました。
-
-VSCodeでは、これらの操作を拡張機能が担当します。
+---
 
 # ブレークポイントとステップ実行
 
 ## ブレークポイントを設定する
 
-Try Kernelの `kernel/inittsk.c` を開き、`main` 関数内の31行目にブレークポイントを設定します。
-
 VSCodeでは、ソースコード左端の余白をクリックするか、`F9` でブレークポイントを設定・解除できます。
 
-<!-- TODO: 実機で設定と停止を確認し、画像を掲載する。 -->
+Try Kernelの `kernel/inittsk.c` を開き、`main` 関数内の32行目にブレークポイントを設定します。
+
+`F5` でデバッグを開始すると、まず `main` 関数の31行目で停止します。さらに `F5` で実行を再開すると、設定した32行目のブレークポイントで停止します。
+
+<img src="/images/pico-vscode-cortex-debug/vscode-breakpoint.png"
+     alt="VSCodeで設定したブレークポイントに停止した画面"
+     width="700">
 
 ## ステップ実行する
 
@@ -156,60 +162,76 @@ VSCodeでは、標準のファンクションキーでデバッグ操作がで�
 | `F11` | ステップイン | `step` |
 | `Shift+F11` | ステップアウト | `finish` |
 
+また、画面上部のデバッグツールバーにあるアイコンからも、実行再開、ステップ実行、一時停止、再起動、終了などを操作できます。
+
+<img src="/images/pico-vscode-cortex-debug/vscode-debug-toolbar.png"
+     alt="VSCodeのデバッグツールバー"
+     width="400">
+
 termdebugの記事では、これらの操作をVimのキーマッピングに登録しました。
 
 VSCodeでは標準のデバッグ操作として用意されているため、追加設定なしで利用できます。
 
-<!-- TODO: 各操作を実機で確認する。 -->
+---
 
 # 変数の値を確認する
 
-## 変数の値を確認する
+デバッグ中にプログラムが停止すると、VSCodeの「変数」ペインから変数の値を確認できます。また、ソースコード上の変数にマウスカーソルを合わせても値を確認できます。
 
-デバッグ中にプログラムが停止すると、VSCodeのデバッグ画面から変数の値を確認できます。
+継続して値を確認したい変数や式は、「ウォッチ式」に登録します。
 
-ソースコード上で変数にマウスカーソルを合わせる方法もあります。
+今回は、`inittsk.c` の32行目で停止し、初期タスクのIDを格納する `tskid_ini` を確認しました。
 
-<!-- TODO: inittsk.cの実在する変数で確認する。 -->
+<img src="/images/pico-vscode-cortex-debug/vscode-watch.png"
+     alt="VSCodeで変数ペイン、マウスオーバ、ウォッチ式からtskid_iniの値を確認した画面"
+     width="700">
 
-## ウォッチ式を登録する
+いずれも `tskid_ini = 1` と表示され、`tk_cre_tsk()` によって生成されたタスクのIDを確認できました。
 
-継続して値を確認したい変数や式は、VSCodeの「ウォッチ」に登録できます。
+ウォッチ式は、GDBの `display` コマンドと同様に、プログラムの停止時に式の値を継続して確認するために利用できます。
 
-これはGDBターミナルで `display` コマンドを使う場合と目的は似ていますが、VSCodeではGUI上で登録した式を確認できます。
-
-<!-- TODO: ウォッチ式の登録・更新・削除を確認し、画像を掲載する。 -->
+---
 
 # メモリの内容を確認する
 
 組込み開発では、変数だけでなくメモリの内容を直接確認したいこともあります。
 
-GDBでは、例えば次のコマンドを使用します。
+VSCodeでは、Cortex-Debugの「MEMORY」ビューからメモリの内容を確認できます。
+
+「MEMORY」ビューの `＋` をクリックし、開始アドレスに `0x20000000`、表示サイズに `64` を指定します。
+
+<img src="/images/pico-vscode-cortex-debug/vscode-memory.png"
+     alt="VSCodeでRP2040のSRAM先頭から64バイトを表示した画面"
+     width="700">
+
+今回の環境では、RP2040のSRAM先頭アドレス `0x20000000` から64バイトのメモリ内容を表示できました。
+
+これは、GDBで次のコマンドを実行する場合と同じ範囲です。
 
 ```gdb
 x/16wx 0x20000000
 ```
 
-`x` コマンドの `/` 以降は表示方法の指定で、`16` は表示個数、`w` は32bit（word）、最後の `x` は16進数表示を指定します。
+`16` は表示個数、`w` は32bit単位、最後の `x` は16進数表示を指定します。16個の32bit値なので、合計64バイトです。
 
-この例では、アドレス `0x20000000` から64バイトのメモリ内容を表示します。
+VSCodeでは、アドレスと表示サイズを指定することで、GUI上からメモリの内容を確認できます。
 
-<!-- TODO: VSCodeでメモリ表示を行う方法を確認する。Cortex-Debugの機能、VSCodeのメモリ表示、GDBコンソールのどれを記事の中心にするか判断する。 -->
+---
 
 # デバッグを終了する
 
-VSCodeのデバッグ操作から停止を実行します。
+VSCode上部のデバッグツールバーにある停止ボタン、または `Shift+F5` でデバッグセッションを終了します。
 
-<!-- TODO: 停止時にGDBとOpenOCDが終了すること、再度F5で開始できることを確認する。 -->
+Cortex-DebugがGDBとOpenOCDの接続・終了処理を行うため、PowerShellから個別に操作する必要はありません。
+
+---
 
 # おわりに
 
-今回はVSCodeのCortex-Debugを使用し、Windows 11上からRaspberry Pi Pico WのTry Kernelをデバッグする環境を構築します。
+今回はVSCodeのCortex-Debugを使用し、Windows 11上からRaspberry Pi Pico WのTry Kernelを実機デバッグしました。
 
-これまでの記事で手動操作していたOpenOCDやGDBを、VSCodeから利用できるようにするのが今回の目的です。
+OpenOCDとGDBの起動・接続を自動化し、ブレークポイント、ステップ実行、変数の監視、メモリ表示まで、VSCode上で操作できることを確認しました。
 
-便利な開発環境を使うことと、その内部の仕組みを理解することは矛盾しません。
+これまでのOpenOCD/GDBやVimのtermdebugと同じデバッグ環境を使いながら、VSCodeではデバッグの開始から終了までGUIで操作できます。
 
-普段はVSCodeに操作を任せ、問題が発生したときにはOpenOCDやGDBの知識を使って原因を調べられる。そんな開発環境を目指します。
-
-<!-- TODO: 実際に使った感想を反映して、公開前に書き直す。 -->
+OpenOCDやGDBの仕組みを理解したうえでCortex-Debugを利用すると、普段のデバッグ操作を効率化しながら、必要に応じてGDBによる調査も行えます。
