@@ -278,6 +278,13 @@ Copy-Item ".\sniffer_5.0.0\flash.uf2" "E:\"
 
 nRF UtilのBLE Snifferには、Wiresharkとの連携機能があります。
 
+Wiresharkのインストールや初期設定、詳しい操作方法については、以下の資料を参照してください。
+
+- [Nordic公式 — Running nRF Sniffer](https://docs.nordicsemi.com/r/bundle/nrfutil/page/nrfutil-ble-sniffer/wireshark_sniffer_running.html)
+- [Qiita — nRF BLE Sniffer + Wiresharkで、Central-Peripheral間のBLEパケットをキャプチャする](https://qiita.com/Ke_N_551/items/a02f572e587a37834d20)
+
+なお、Qiita記事は旧バージョンのSnifferを使用しているため、導入手順は本記事およびNordic公式ドキュメントを優先してください。
+
 Wiresharkの外部キャプチャ機能（extcap）を設定するため、PowerShellで次のコマンドを実行します。
 
 ```powershell
