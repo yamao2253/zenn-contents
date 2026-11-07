@@ -3,7 +3,7 @@ title: "Try Kernelのタスク管理 — なぜOSが必要なのか？"
 emoji: "⚙️"
 type: "tech"
 topics: ["raspberrypi", "pico", "rtos", "c"]
-published: false
+published: true
 ---
 
 ## はじめに
@@ -211,25 +211,22 @@ void tk_ext_tsk(void);
 
 ## Try Kernelで実際に動かしてみる
 
-ここからは、書籍P.74のリスト12「サンプル・アプリケーション」を使って、タスク管理の動作を確認します。
+ここからは、書籍P.74のリスト12「サンプル・アプリケーション」に対応する著者公開のソースコードを使って、タスク管理の動作を確認します。
 
-今回はOSの内部実装には手を加えず、アプリケーションからタスク管理APIを使用し、その動作を確認していきます。
+OSの内部実装には手を加えず、アプリケーションからタスク管理APIを使用します。
 
 ### 使用するコードと開発環境
 
-使用するのは、『Interface』2023年7月号の第3部 第2章に対応するTry Kernelと、P.74のリスト12「サンプル・アプリケーション」です。
-
 ソースコードは、著者の[GitHubリポジトリ](https://github.com/ytoyoyama/interface_trykernel)で公開されています。
 
-- 使用するディレクトリ：`part_3/sect_2`
-- 対象ファイル：`application/usermain.c`
+- 使用するソースコード：`part_3/sect_2`
+- サンプル・アプリケーション：`application/usermain.c`
 
 開発環境は、以下の記事で構築したWindows 11上の環境を使用します。
 
 - [「ラズパイPicoで1500行 ゼロから作るOS」を2026年に動かす](https://zenn.dev/helowota/articles/pico-trykernel-windows-env) — 開発環境の構築からビルド・書き込みまで
 
-今回の動作確認では、Debug ProbeのSWD経由でプログラムを書き込み、UARTからの出力をシリアル通信に対応したターミナルソフトで確認します。本記事ではTera Termを使用します。
-
+プログラムはDebug ProbeのSWD経由で書き込み、UART出力をシリアル通信に対応したターミナルソフトで確認します。本記事ではTera Termを使用します。
 | 項目 | 内容 |
 |---|---|
 | ターゲット | Raspberry Pi Pico W（RP2040） |
@@ -238,7 +235,7 @@ void tk_ext_tsk(void);
 | UART出力の確認 | Tera Term（115200 bps、8N1、フロー制御なし、受信改行LF） |
 | デバッグプローブ | Pico W（CMSIS-DAP、UART） |
 
-今回は、`part_3/sect_2` に対応するMakefileを用意し、ビルドから実機での動作確認までを行います。
+ビルドには、`part_3/sect_2` に対応するMakefileを追加します。
 
 ### サンプルコードの処理の流れ
 
