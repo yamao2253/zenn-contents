@@ -3,7 +3,7 @@ title: "Try Kernelのタスク付属同期 — タスクを待たせる・起こ
 emoji: "⚙️"
 type: "tech"
 topics: ["raspberrypi", "pico", "rtos", "c"]
-published: false
+published: true
 ---
 
 ## はじめに
@@ -197,7 +197,7 @@ Try Kernelでは、タスク制御ブロック（TCB）の `wupcnt` で起床要
 
 ## タスクの状態遷移を整理する
 
-前回の記事では、タスクの生成・起動・終了に注目しました。
+[前回の記事](https://zenn.dev/helowota/articles/pico-trykernel-task-management)では、タスクの生成・起動・終了に注目しました。
 
 今回は、新たに「待ち状態」が登場します。
 
@@ -228,7 +228,7 @@ Try Kernelでは、タスク制御ブロック（TCB）の `wupcnt` で起床要
 
 ここで重要なのは、**待ち状態の解除と、CPUで実際に実行されることは別**という点です。
 
-これは前回のタスク管理で学んだ、実行可能状態と実行状態の違いにもつながります。
+これは[前回のタスク管理](https://zenn.dev/helowota/articles/pico-trykernel-task-management#実機で動かして分かったこと)で学んだ、実行可能状態と実行状態の違いにもつながります。
 
 ---
 
@@ -245,7 +245,7 @@ Try Kernelでは、タスク制御ブロック（TCB）の `wupcnt` で起床要
 - 使用するソースコード：`part_4/sect_1`
 - サンプル・アプリケーション：`application/usermain.c`
 
-開発環境は、前回の記事と同じWindows 11上の環境を使用します。
+開発環境は、[前回の記事](https://zenn.dev/helowota/articles/pico-trykernel-task-management)と同じWindows 11上の環境を使用します。
 
 | 項目 | 内容 |
 |---|---|
