@@ -47,7 +47,7 @@ Zephyr公式のGetting Startedでは、`zephyrproject` というワークスペ�
 今回は、自作アプリケーションをワークスペースの外で管理します。
 
 ```text
-C:\home\yamao\
+C:\home\<ユーザ名>\
 ├── env\
 │   └── zephyrproject\
 │       ├── .venv\
@@ -60,6 +60,7 @@ C:\home\yamao\
     ├── zephyr-sensor-lab\
     │   ├── CMakeLists.txt
     │   ├── prj.conf
+    │   ├── env.ps1
     │   └── src\
     │       └── main.c
     │
@@ -74,7 +75,7 @@ Zephyr本体はwestによって取得・管理するため、自分のGitHubリ�
 
 このようなZephyrソースツリーの外にアプリケーションを配置する方式は、Out-of-tree Applicationと呼ばれます。
 
-なお、ディレクトリ名や配置先は任意です。
+ディレクトリ名や配置先は任意です。今回使用した`C:\home\<ユーザ名>`はWindows標準のユーザディレクトリではないため、実際に構築する際は自分の環境に合わせてパスを変更してください。
 
 ---
 
@@ -116,49 +117,36 @@ git --version
 git version 2.43.0.windows.1
 ```
 
-### CMake
+### CMakeとNinja
 
-CMakeはZephyrのビルド構成を生成するツールです。
+Zephyrのビルドには、CMakeとNinjaを使用します。
 
-Windowsでは`winget`を使用してインストールできます。`winget`はWindows 11に標準で用意されているパッケージ管理ツールです。
+- **CMake**：ビルド構成を生成するツール
+- **Ninja**：CMakeが生成したビルド定義に従ってコンパイルなどを実行するツール
+
+Windowsでは、標準で用意されているパッケージ管理ツール`winget`を使用してインストールできます。
 
 ```powershell
 winget install --id Kitware.CMake -e --source winget
-```
-
-インストール後、PowerShellを開き直し、バージョンを表示して実行できることを確認します。
-
-```powershell
-cmake --version
-```
-
-実行結果：
-
-```text
-cmake version 4.4.4
-```
-
-### Ninja
-
-NinjaはCMakeが生成したビルド定義に従ってコンパイルなどを実行するツールです。
-
-Windowsでは`winget`を使用してインストールできます。
-
-```powershell
 winget install --id Ninja-build.Ninja -e --source winget
 ```
 
-インストール後、PowerShellを開き直し、バージョンを表示して実行できることを確認します。
+インストール後、PowerShellを開き直し、それぞれのバージョンを確認します。
 
 ```powershell
+cmake --version
 ninja --version
 ```
 
 実行結果：
 
 ```text
+cmake version 4.4.4
+
 1.13.0.git.kitware.jobserver-pipe-1
 ```
+
+両方のツールが正常に実行できることを確認しました。
 
 ---
 
