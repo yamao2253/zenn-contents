@@ -3,7 +3,7 @@ title: "Windows 11にZephyr RTOS開発環境を構築してRaspberry Pi Pico 2�
 emoji: "⚙️"
 type: "tech"
 topics: ["zephyr", "raspberrypi", "pico", "rtos", "windows"]
-published: false
+published: true
 ---
 
 ## はじめに
