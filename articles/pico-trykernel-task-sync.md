@@ -252,7 +252,7 @@ Try Kernelでは、タスク制御ブロック（TCB）の `wupcnt` で起床要
 | ターゲット | Raspberry Pi Pico W（RP2040）＋ Robo Pico |
 | ビルド | GNU Make、Arm GNU Toolchain |
 | 書き込み | OpenOCD、GDB |
-| UART出力の確認 | Tera Term |
+| UART出力の確認 | Tera Term（115200 bps、8N1、フロー制御なし、受信改行LF） |
 | デバッグプローブ | Pico互換ボード（CMSIS-DAP、UART） |
 | 入力 | Robo Picoの押しボタン（GP20） |
 | 出力 | Robo PicoのGrove 2にあるステータスLED（GP2） |
