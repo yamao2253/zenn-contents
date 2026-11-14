@@ -8,6 +8,10 @@ published: true
 
 ## はじめに
 
+本記事は、CQ出版社『Interface』2023年7月号の特集「ラズパイPicoで1500行 ゼロから作るOS」で紹介されたリアルタイムOS「Try Kernel」を題材に、OSの仕組みを実機で学ぶシリーズの一部です。
+
+前回の記事「[Try Kernelのタスク管理 — なぜOSが必要なのか？](https://zenn.dev/helowota/articles/pico-trykernel-task-management)」では、タスクの生成・起動・終了という一連の動作を確認しました。
+
 前回の記事「[Try Kernelのタスク管理 — なぜOSが必要なのか？](https://zenn.dev/helowota/articles/pico-trykernel-task-management)」では、Try Kernelのタスク管理機能を使って、タスクの生成・起動・終了という一連の動作を確認しました。
 
 マルチタスクOSを使うことで、複数の処理をタスクとして分離し、その実行をOSに管理させられます。

@@ -8,9 +8,13 @@ published: false
 
 ## はじめに
 
-Interface誌の特集『ラズパイPicoで1500行 ゼロから作るOS』を参考に、Raspberry Pi PicoでTry Kernelを動かしています。
+## はじめに
+
+CQ出版社『Interface』2023年7月号の特集「ラズパイPicoで1500行 ゼロから作るOS」を参考に、Raspberry Pi PicoでリアルタイムOS「Try Kernel」を動かしています。
 
 これまでにタスク管理やタスク間同期のサンプルを動作させ、セマフォやイベントフラグを利用するところまで進みました。
+
+開発環境の構築手順については、[こちらの記事](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)で紹介しています。
 
 ただ、プログラムが期待どおりに動いていても、OSの内部で何が起きているのかは、なかなか見えてきません。
 

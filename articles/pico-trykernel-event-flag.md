@@ -8,6 +8,8 @@ published: true
 
 ## はじめに
 
+本記事は、CQ出版社『Interface』2023年7月号の特集「ラズパイPicoで1500行 ゼロから作るOS」で紹介されたリアルタイムOS「Try Kernel」を題材に、OSの仕組みを実機で学ぶシリーズの一部です。
+
 前回の記事「[Try Kernelのタスク付属同期 — タスクを待たせる・起こす](https://zenn.dev/helowota/articles/pico-trykernel-task-sync)」では、`tk_slp_tsk()` と `tk_wup_tsk()` を使って、タスクの起床待ちと起床要求の仕組みを学びました。
 
 タスク付属同期では、あるタスクから別のタスクへ起床要求を送り、処理を開始させることができます。
