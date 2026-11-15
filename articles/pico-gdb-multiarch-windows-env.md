@@ -26,7 +26,7 @@ GDBによるデバッグは問題なく行えていましたが、環境を使�
 
 最終的には、**MSYS2のGDB Multiarchを採用することで、既存のビルド環境を変更せずに問題を解決できました。**
 
-本記事では、GDBを比較した過程と、最終的に採用した環境の構築手順をまとめます。
+本記事では、各GDBを比較と、最終的に採用した環境の構築手順をまとめます。
 
 
 # 使用環境
@@ -48,71 +48,81 @@ GDB以外の環境は、これまで構築したものをそのまま使用し�
 
 ## xPack Arm GNU ToolchainのGDB
 
-最初に使用していたのは、xPack Arm GNU Toolchainに含まれるGDBです。
+以前は、[環境構築の記事](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)で導入したxPack Arm GNU Toolchainに含まれる`arm-none-eabi-gdb.exe`を使用していました。
 
-このツールチェーンには、次の2種類のGDBが含まれていました。
+このGDBでは、`list <関数名>`でソースコードを表示すると、UTF-8で記述された日本語コメントが文字化けする問題がありました。
 
-- `arm-none-eabi-gdb.exe`
-- `arm-none-eabi-gdb-py3.exe`
+```text
+(gdb) list main
+warning: could not convert 'main' from the host encoding (CP1252) to UTF-32.
+This normally should not happen, please file a bug report.
+26          usermain();
+27          tk_ext_tsk();
+28      }
+29
+30      int main(void)
+31      {
+32          tskid_ini = tk_cre_tsk(&ctsk_ini);              // 蛻晄悄繧ｿ繧ｹ繧ｯ逕滓・
+34          tk_sta_tsk(tskid_ini, 0);                       // 蛻晄悄繧ｿ繧ｹ繧ｯ螳溯｡・
+```
 
-前者は通常のGDB、後者はPython対応版です。
+同じツールチェーンにはPython対応版の`arm-none-eabi-gdb-py3.exe`も含まれています。GDBからPythonを利用したかったため、こちらも試してみました。
 
-Pythonを使うため、`arm-none-eabi-gdb-py3.exe`を試しました。
+ところが、`list main`を実行すると、同じ警告が発生するだけでなく、ソースコードが表示されずにGDBが終了してしまいました。
 
-Pythonは使用できましたが、日本語コメントの表示で問題が発生しました。
+```text
+(gdb) list main
+warning: could not convert 'main' from the host encoding (CP1252) to UTF-32.
+This normally should not happen, please file a bug report.
+```
 
-GDBで文字コードを確認すると、次の状態でした。
+文字コードを確認するとCP1252になっており、`arm-none-eabi-gdb.exe`と`arm-none-eabi-gdb-py3.exe`のどちらもUTF-8を指定できませんでした。
 
 ```text
 (gdb) show host-charset
 The host character set is "auto; currently CP1252".
+(gdb) set host-charset UTF-8
+Undefined item: "UTF-8".
+(gdb) set host-charset
+CP1252  auto
 ```
 
-UTF-8を指定しようとしても、このGDBではUTF-8を選択できませんでした。
+PowerShell側の出力文字コードも、次のコマンドで一時的にUTF-8へ変更してみましたが、GDBの`host-charset`はCP1252のままで、問題は解消しませんでした。
 
-日本語コメントを含むソースを表示しようとすると、次の警告が発生します。
-
-```text
-warning: could not convert 'main' from the host encoding (CP1252) to UTF-32
+```powershell
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 ```
 
-PowerShell側の出力文字コードをUTF-8に変更しても、この問題は解消しませんでした。
+日本語コメントを正しく表示でき、Pythonも利用できる他のGDBを探すことにしました。
 
-つまり、Pythonには対応しているものの、今回の環境では日本語ソースを快適に表示できません。
+## GDBの比較
 
-## MinGW-w64のGDB
+Windows向けに公開されているGDBのうち、ソースコードをビルドせずに導入できる次の3種類を試しました。
 
-次に試したのは、MinGW-w64環境のGDB 16.2です。
+- xPack Arm GNU ToolchainのGDB
+- MinGW-w64のGDB
+- MSYS2のGDB Multiarch
 
-このGDBはUTF-8に対応しており、日本語コメントも表示できました。
+比較結果は次のとおりです。
 
-しかし、別の問題が発生しました。
+| GDB | バージョン | 日本語表示 | Python | Arm対応 |
+|---|---|---|---|---|---|
+| xPack GDB（無印） | 15.2.90 | × | × | ○ |
+| xPack GDB（py3） | 15.2.90 | × | ○ | ○ |
+| MinGW-w64 GDB | 16.2 | ○ | ○ | × |
+| MSYS2 GDB Multiarch | 18.1 | ○ | ○ | ○ |
 
-**GDBのコマンド入力でBackspaceが正常に動作しません。**
+※今回のWindows 11環境で確認した結果です。
 
-WezTermだけの問題かと思い、Windows Terminalや従来のコンソールでも試しましたが、同様でした。
+MinGW-w64のGDBでは日本語表示とPython対応を確認できましたが、今回使用したものはArmターゲットに対応していませんでした。また、コマンド入力でBackspaceが正常に動作しない問題もありました。
 
-GDBの設定を変更するとBackspaceは使えるようになりました。
-
-```gdb
-set editing off
-```
-
-ただし、この設定ではGDBのコマンドライン編集機能が無効になります。
-
-Backspaceのために編集機能を犠牲にするのは避けたいところです。
-
-また、今回使用したMinGW-w64のGDBはWindows向けの構成であり、Armターゲットのデバッグには適していませんでした。
-
-そこで、別のGDBを探すことにしました。
+一方、MSYS2のGDB Multiarchでは必要な条件をすべて満たしていたため、こちらを採用しました。
 
 ## MSYS2のGDB Multiarch
 
-最終的に採用したのが、MSYS2で提供されているGDB Multiarchです。
-
 GDB Multiarchは、複数のCPUアーキテクチャを扱えるGDBです。
 
-今回使用したパッケージは、次のものです。
+今回使用したMSYS2のパッケージは、次のものです。
 
 ```text
 mingw-w64-ucrt-x86_64-gdb-multiarch
@@ -120,16 +130,7 @@ mingw-w64-ucrt-x86_64-gdb-multiarch
 
 インストールされたGDBは18.1でした。
 
-実際に試したところ、次の条件を満たしていました。
-
-| GDB | Python | UTF-8日本語 | Backspace | Armデバッグ |
-|---|---|---|---|---|
-| xPack GDB 15.2.90 | × | 未確認 | ○ | ○ |
-| xPack GDB py3 15.2.90 | ○ | × | ○ | ○ |
-| MinGW-w64 GDB 16.2 | ○ | ○ | × | × |
-| MSYS2 GDB Multiarch 18.1 | ○ | ○ | ○ | ○ |
-
-※表は今回使用した環境での確認結果です。各GDBの一般的な対応状況を示すものではありません。
+---
 
 # MSYS2 GDB Multiarchの導入
 
