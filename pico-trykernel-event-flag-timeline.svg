@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1550" height="560" viewBox="0 0 1550 560">
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font-family:"Noto Sans CJK JP","Noto Sans",sans-serif;fill:#263343} .small{font-size:13px} .label{font-size:17px;font-weight:600}.time{font-size:13px}.minor{fill:#64748b;font-size:12px}</style>
+<text x="24" y="33" font-size="22" font-weight="bold">イベントフラグとLED出力の状態変化（理想化した動作）</text>
+<text x="24" y="57" class="minor">BTN1=100ms / BTN2=300ms　｜　各列は状態変化点（時間間隔は比例しない）</text>
+<rect x="15" y="84" width="1510" height="61" rx="5" fill="#f8fafc"/>
+<text x="24" y="116" class="label">ボタン操作</text>
+<rect x="15" y="154" width="1510" height="61" rx="5" fill="#f8fafc"/>
+<text x="24" y="186" class="label">フラグ bit 0/1</text>
+<rect x="15" y="224" width="1510" height="61" rx="5" fill="#f8fafc"/>
+<text x="24" y="256" class="label">task_led1</text>
+<rect x="15" y="294" width="1510" height="61" rx="5" fill="#f8fafc"/>
+<text x="24" y="326" class="label">task_led2</text>
+<rect x="15" y="364" width="1510" height="61" rx="5" fill="#f0fdf4"/>
+<text x="24" y="396" class="label">LED (GP2)</text>
+<line x1="175" y1="84" x2="175" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="175" y="465" text-anchor="middle" class="time">0</text>
+<line x1="255" y1="84" x2="255" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="255" y="465" text-anchor="middle" class="time">100</text>
+<line x1="335" y1="84" x2="335" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="335" y="465" text-anchor="middle" class="time">300</text>
+<line x1="415" y1="84" x2="415" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="415" y="465" text-anchor="middle" class="time">400</text>
+<line x1="495" y1="84" x2="495" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="495" y="465" text-anchor="middle" class="time">500</text>
+<line x1="575" y1="84" x2="575" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="575" y="465" text-anchor="middle" class="time">600</text>
+<line x1="655" y1="84" x2="655" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="655" y="465" text-anchor="middle" class="time">700</text>
+<line x1="735" y1="84" x2="735" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="735" y="465" text-anchor="middle" class="time">800</text>
+<line x1="815" y1="84" x2="815" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="815" y="465" text-anchor="middle" class="time">900</text>
+<line x1="895" y1="84" x2="895" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="895" y="465" text-anchor="middle" class="time">1000</text>
+<line x1="975" y1="84" x2="975" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="975" y="465" text-anchor="middle" class="time">1100</text>
+<line x1="1055" y1="84" x2="1055" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1055" y="465" text-anchor="middle" class="time">1200</text>
+<line x1="1135" y1="84" x2="1135" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1135" y="465" text-anchor="middle" class="time">1300</text>
+<line x1="1215" y1="84" x2="1215" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1215" y="465" text-anchor="middle" class="time">1600</text>
+<line x1="1295" y1="84" x2="1295" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1295" y="465" text-anchor="middle" class="time">2100</text>
+<line x1="1375" y1="84" x2="1375" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1375" y="465" text-anchor="middle" class="time">2600</text>
+<line x1="1455" y1="84" x2="1455" y2="439" stroke="#d6dce4" stroke-dasharray="3,4"/>
+<text x="1455" y="465" text-anchor="middle" class="time">3100</text>
+<text x="145" y="465" class="time" text-anchor="end">ms</text>
+<rect x="228" y="92" width="54" height="28" rx="6" fill="#dbeafe" stroke="#60a5fa"/><text x="255" y="111" text-anchor="middle" class="small">BTN1</text>
+<rect x="308" y="92" width="54" height="28" rx="6" fill="#dbeafe" stroke="#60a5fa"/><text x="335" y="111" text-anchor="middle" class="small">BTN2</text>
+<text x="255" y="184" text-anchor="middle" class="small">01 → 00</text>
+<text x="335" y="184" text-anchor="middle" class="small">10 → 00</text>
+<text x="600" y="184" class="minor">待ち解除時に TWF_BITCLR でクリア</text>
+<rect x="255" y="236" width="1200" height="26" rx="4" fill="#dbeafe"/>
+<text x="855.0" y="254" text-anchor="middle" class="small">WT（tk_dly_tsk）を繰り返す</text>
+<rect x="335" y="306" width="800" height="26" rx="4" fill="#dbeafe"/>
+<text x="735.0" y="324" text-anchor="middle" class="small">WT（tk_dly_tsk）を繰り返す</text>
+<rect x="175" y="236" width="80" height="26" rx="4" fill="#e2e8f0"/><text x="215.0" y="254" text-anchor="middle" class="small">WE</text>
+<rect x="1455" y="236" width="50" height="26" rx="4" fill="#e2e8f0"/><text x="1480.0" y="254" text-anchor="middle" class="small">WE</text>
+<rect x="175" y="306" width="160" height="26" rx="4" fill="#e2e8f0"/><text x="255.0" y="324" text-anchor="middle" class="small">WE</text>
+<rect x="1135" y="306" width="370" height="26" rx="4" fill="#e2e8f0"/><text x="1320.0" y="324" text-anchor="middle" class="small">WE</text>
+<text x="255" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="575" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="975" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="1215" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="1295" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="1375" y="231" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="335" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="415" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="495" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="575" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="655" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="735" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="815" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="895" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<text x="975" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#047857">ON</text>
+<text x="1055" y="301" text-anchor="middle" font-size="12" font-weight="600" fill="#b45309">OFF</text>
+<rect x="255" y="380" width="160" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="335.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<rect x="495" y="380" width="80" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="535.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<rect x="655" y="380" width="80" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="695.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<rect x="815" y="380" width="80" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="855.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<rect x="975" y="380" width="80" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="1015.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<rect x="1295" y="380" width="80" height="28" rx="2" fill="#16a34a" opacity=".78"/>
+<text x="1335.0" y="399" text-anchor="middle" fill="white" font-size="12" font-weight="bold">ON</text>
+<text x="175" y="430" class="minor">緑＝点灯、白＝消灯。最後のGPIO書込みが反映される</text>
+<text x="24" y="505" class="small">※ WE：イベント待ち、WT：時間待ち。ボタン検出遅延・タスク実行時間は省略。</text>
+<text x="24" y="528" class="small">※ 600msと1100msでは両タスクが同時刻にGPIOを書き込むが、同じ値なので順序によらず結果は同じ。</text>
+</svg>
