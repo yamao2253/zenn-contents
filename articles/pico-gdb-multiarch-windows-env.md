@@ -525,10 +525,17 @@ openocd -f interface/cmsis-dap.cfg -c "adapter speed 1000" -f target/rp2040.cfg
 
 ## GDBから接続
 
-別のPowerShellを開き、Try Kernelのビルドディレクトリがある場所でGDBを起動します。
+別のPowerShellを開き、Try Kernelのソースディレクトリ（`part_4/sect_3`）でGDBを起動します。
 
 ```powershell
 gdb-multiarch -q build/trykernel.elf
+```
+
+実行結果：
+
+```text
+Reading symbols from build/trykernel.elf...
+(gdb)
 ```
 
 GDBからOpenOCDへ接続します。
@@ -537,16 +544,48 @@ GDBからOpenOCDへ接続します。
 target remote localhost:3333
 ```
 
-ターゲットを停止します。
+実行結果：
+
+```text
+Remote debugging using localhost:3333
+disp_020 () at kernel/dispatch.S:50
+50          beq     disp_020
+```
+
+接続時点では、Try Kernelのディスパッチ処理で停止していました。
+
+ターゲットをリセットして停止します。
 
 ```gdb
 monitor reset halt
 ```
 
-プログラムを書き込みます。
+実行結果：
+
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+```
+
+RP2040の2つのコアが停止したことを確認できます。
+
+続いて、プログラムを書き込みます。
 
 ```gdb
 load
+```
+
+実行結果：
+
+```text
+Loading section boot2, size 0x100 lma 0x10000000
+Loading section .text, size 0x1ed6 lma 0x10000100
+Loading section .ARM.exidx, size 0x8 lma 0x10001fd8
+Loading section .data, size 0x64 lma 0x10001fe0
+Start address 0x100007c0, load size 8258
+Transfer rate: 1 KB/sec, 2064 bytes/write.
 ```
 
 `main`関数にブレークポイントを設定します。
@@ -555,11 +594,29 @@ load
 break main
 ```
 
+実行結果：
+
+```text
+Breakpoint 1 at 0x10000b20: file kernel/inittsk.c, line 32.
+Note: automatically using hardware breakpoints for read-only addresses.
+```
+
 実行を再開します。
 
 ```gdb
 continue
 ```
+
+実行結果：
+
+```text
+Continuing.
+
+Thread 1 "rp2040.core0" hit Breakpoint 1, main () at kernel/inittsk.c:32
+32          tskid_ini = tk_cre_tsk(&ctsk_ini);              // 初期タスク生成
+```
+
+`main()`の先頭で停止しました。
 
 ソースコードを確認します。
 
@@ -567,13 +624,36 @@ continue
 list main
 ```
 
-ステップ実行します。
+実行結果：
+
+```text
+26          usermain();
+27          tk_ext_tsk();
+28      }
+29
+30      int main(void)
+31      {
+32          tskid_ini = tk_cre_tsk(&ctsk_ini);              // 初期タスク生成
+33          tk_sta_tsk(tskid_ini, 0);                       // 初期タスク実行
+34
+35           while(1);      // ここは実行されない
+```
+
+1行ステップ実行します。
 
 ```gdb
 next
 ```
 
-今回の環境では、OpenOCDとの接続、プログラムの書き込み、ブレークポイント、ステップ実行が正常に動作しました。
+実行結果：
+
+```text
+33          tk_sta_tsk(tskid_ini, 0);                       // 初期タスク実行
+```
+
+32行目の初期タスク生成処理が実行され、33行目の初期タスク起動処理まで進みました。
+
+以上により、OpenOCDとの接続、プログラムの書き込み、ブレークポイントでの停止、ソースコードの表示、ステップ実行が正常に動作することを確認できました。
 
 ---
 
