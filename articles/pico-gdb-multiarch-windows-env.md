@@ -1,5 +1,5 @@
 ---
-title: Windows 11でGDBの日本語文字化けを解消する ― MSYS2 GDB MultiarchでRaspberry Pi Picoをデバッグ
+title: Windows 11でGDBの日本語文字化けを解消 ― MSYS2 GDB Multiarchを使う
 emoji: "🔧"
 type: "tech"
 topics: ["gdb", "msys2", "raspberrypi", "pico", "windows"]
