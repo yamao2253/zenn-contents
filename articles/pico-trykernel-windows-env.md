@@ -47,7 +47,7 @@ Eclipseを使った環境よりも、CLIベースの環境の方が構成がシ�
 
 - 書籍掲載のソースコードやリンカスクリプトは、できるだけそのまま使用します。
 - 書籍でEclipseに設定するコンパイル・リンク条件はMakefileに記述し、PowerShellから `make` してビルドします。
-- デバッグ環境についても、現在入手できるツールを使用します。
+- デバッグ環境には、OpenOCDとMSYS2 GDB Multiarchを使用します。
 
 つまり、Try Kernelそのものを変更するのではなく、**その周囲の開発環境を現在の環境に置き換える**ことを基本方針とします。
 
@@ -64,7 +64,7 @@ Eclipseを使った環境よりも、CLIベースの環境の方が構成がシ�
 
 最終的には、次のような開発環境を構築します。
 
-![開発環境の構成](/images/pico-trykernel-windows-env/blockdiagram.png)
+<img src="/images/pico-trykernel-windows-env/blockdiagram.png" alt="開発環境の構成">
 
 ---
 
@@ -75,7 +75,7 @@ Eclipseを使った環境よりも、CLIベースの環境の方が構成がシ�
 書籍のAppendixの環境（Eclipse中心）を、Windows上のコマンドライン環境に置き換えて構築します。
 
 最大のポイントは、**Eclipseを使わずにPowerShellから `make` でビルド**を行い、
-OpenOCDとGDBを使って実機のRaspberry Pi Pico（RP2040）に書き込んで動作確認することです。
+OpenOCDとGDBを使って実機のRaspberry Pi Pico W（RP2040）に書き込んで動作確認することです。
 
 - **Windows上で完結**
   - Eclipseは使用せず、PowerShellからGNU Makeでビルドします。
@@ -84,7 +84,9 @@ OpenOCDとGDBを使って実機のRaspberry Pi Pico（RP2040）に書き込ん�
 - **同等のビルド設定**
   - 書籍のEclipse設定と同等のコンパイル・リンクオプションをMakefileに記述します。
 - **Arm GCCツールチェーン**
-  - xPackのGNU Arm Embedded GCCを使用します（`arm-none-eabi-gcc` / `arm-none-eabi-gdb` など）。
+  - xPackのGNU Arm Embedded GCCを使用します（`arm-none-eabi-gcc` など）。
+- **GDB Multiarch**
+  - MSYS2のGDB Multiarchをデバッガとして使用します。
 - **OpenOCD + CMSIS-DAP**
   - xPackのOpenOCDと、Pico W（Debug Probe）のCMSIS-DAP機能を使用します。
 - **実機デバッグ／書き込み**
@@ -96,7 +98,7 @@ OpenOCDとGDBを使って実機のRaspberry Pi Pico（RP2040）に書き込ん�
 
 - Raspberry Pi Picoシリーズ
   - Try Kernelを動かすターゲットとして使用します
-  - 私はPico Wを使用しました
+  - 本記事では、RP2040マイコンを搭載したPico Wを使用しました
 - Debug Probe
   - 市販のRaspberry Pi Debug Probeを使用できます
   - 別のPicoシリーズをDebug Probeとして使用することもできます
@@ -122,6 +124,8 @@ OpenOCDとGDBを使って実機のRaspberry Pi Pico（RP2040）に書き込ん�
 - xpm
 - xPack GNU Arm Embedded GCC
 - xPack Windows Build Tools（GNU Make）
+- MSYS2
+- MSYS2 GDB Multiarch
 - xPack OpenOCD
 - Raspberry Pi Debug Probe firmware
 
@@ -189,7 +193,7 @@ Makefileについては、次の章で作成します。
 
 ---
 
-## 2. Try Kernelをビルドする
+## 2. ビルド環境の構築
 
 ### 2.1 GNU Arm Embedded GCCを準備する
 
@@ -200,9 +204,12 @@ Try Kernelをビルドするため、Arm Cortex-M向けのGNUツールチェー�
 このツールチェーンには、次のようなコマンドが含まれています。
 
 - `arm-none-eabi-gcc`：Cソースコードのコンパイルとリンク
-- `arm-none-eabi-gdb`：実機デバッグ
 - `arm-none-eabi-objcopy`：ELFファイルの形式変換など
 - `arm-none-eabi-size`：ELFファイルのセクションサイズや配置の確認
+
+なお、このツールチェーンには `arm-none-eabi-gdb` も含まれていますが、
+Windows環境での日本語表示やPython 3の動作に問題があったため、本記事では使用しません。
+デバッグで使用するGDBには、後述するMSYS2 GDB Multiarchを使用します。
 
 #### xpmを準備する
 
@@ -306,25 +313,23 @@ C:\Users\<ユーザ名>\AppData\Roaming\xPacks\@xpack-dev-tools\arm-none-eabi-gc
 
 PowerShellで次のコマンドを実行します。
 
-```powershell
+```
 arm-none-eabi-gcc --version
-arm-none-eabi-gdb --version
 arm-none-eabi-objcopy --version
 arm-none-eabi-size --version
 ```
 
 私が環境を構築した際には、次のバージョンを使用しました。
 
-```text
+```
 GNU Arm Embedded GCC : 14.2.1
-GDB                  : 15.2.90
 objcopy              : 2.43.1
 ```
 
 `arm-none-eabi-objcopy` と `arm-none-eabi-size` はGNU Binutilsに含まれています。
 
 バージョン番号が多少異なる環境でも動作する可能性はありますが、
-本記事では上記のバージョンでビルドとデバッグができることを確認しています。
+本記事では上記のバージョンでビルドできることを確認しています。
 
 ### 2.2 GNU Makeを準備する
 
@@ -426,49 +431,49 @@ GNU GCCのオプションとの対応は次のようになります。
 `part_2/sect_3` フォルダに、次の内容で `Makefile` を作成します。
 
 ```makefile
-TARGET = trykernel
+# Try Kernel - Part 2, Section 3 (RP2040)
+TARGET := trykernel
+CC := arm-none-eabi-gcc
+SIZE := arm-none-eabi-size
+OBJCOPY := arm-none-eabi-objcopy
+OBJDUMP := arm-none-eabi-objdump
 
-CC      = arm-none-eabi-gcc
-OBJCOPY = arm-none-eabi-objcopy
+CFLAGS := -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g
+LDFLAGS := -mcpu=cortex-m0plus -mthumb -T linker/pico_memmap.ld -nostartfiles
 
-CFLAGS  = -mcpu=cortex-m0plus
-CFLAGS += -mthumb
-CFLAGS += -O0
-CFLAGS += -ffreestanding
-CFLAGS += -std=c99
-CFLAGS += -Iinclude
-CFLAGS += -g
+SRCS := boot/boot2.c boot/reset_hdr.c boot/vector_tbl.c application/main.c
+OBJS := $(patsubst %.c,build/%.o,$(SRCS))
+ELF := build/$(TARGET).elf
 
-LDFLAGS  = -mcpu=cortex-m0plus
-LDFLAGS += -mthumb
-LDFLAGS += -T linker/pico_memmap.ld
-LDFLAGS += -nostartfiles
+.PHONY: all clean size sections
+all: $(ELF)
 
-SRCS = \
-	application/main.c \
-	boot/boot2.c \
-	boot/reset_hdr.c \
-	boot/vector_tbl.c
-
-OBJS = $(SRCS:.c=.o)
-
-all: $(TARGET).elf
-
-$(TARGET).elf: $(OBJS)
+$(ELF): $(OBJS) linker/pico_memmap.ld
 	$(CC) $(LDFLAGS) -o $@ $(OBJS)
+	$(SIZE) $@
 
-%.o: %.c
+build/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-clean:
-	rm -f $(OBJS) $(TARGET).elf
+size: $(ELF)
+	$(SIZE) $(ELF)
 
-.PHONY: all clean
+sections: $(ELF)
+	$(OBJDUMP) -h $(ELF)
+
+clean:
+	rm -rf build
 ```
 
 このMakefileでは、4つのCソースコードをそれぞれコンパイルしてオブジェクトファイルを作成し、
 最後にリンカスクリプト `linker/pico_memmap.ld` を使用して
-`trykernel.elf` を生成します。
+`build/trykernel.elf` を生成します。
+
+オブジェクトファイルも `build/` 以下に生成し、
+ビルドで作成されるファイルをソースコードと分離しています。
+
+`make clean` を実行すると、`build/` 以下の生成物をまとめて削除できます。
 
 なお、`OBJCOPY` はこの時点のMakefileでは使用していませんが、
 書籍の開発環境との対応を分かりやすくするため定義しています。
@@ -486,14 +491,17 @@ make
 正常にビルドできると、次のようにコンパイルとリンクが実行されます。
 
 ```text
-arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c application/main.c -o application/main.o
-arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/boot2.c -o boot/boot2.o
-arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/reset_hdr.c -o boot/reset_hdr.o
-arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/vector_tbl.c -o boot/vector_tbl.o
-arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -T linker/pico_memmap.ld -nostartfiles -o trykernel.elf application/main.o boot/boot2.o boot/reset_hdr.o boot/vector_tbl.o
+arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/boot2.c -o build/boot/boot2.o
+arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/reset_hdr.c -o build/boot/reset_hdr.o
+arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c boot/vector_tbl.c -o build/boot/vector_tbl.o
+arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -O0 -ffreestanding -std=c99 -Iinclude -g -c application/main.c -o build/application/main.o
+arm-none-eabi-gcc -mcpu=cortex-m0plus -mthumb -T linker/pico_memmap.ld -nostartfiles -o build/trykernel.elf build/boot/boot2.o build/boot/reset_hdr.o build/boot/vector_tbl.o build/application/main.o
+arm-none-eabi-size build/trykernel.elf
+   text    data     bss     dec     hex filename
+   3052       0       0    3052     bec build/trykernel.elf
 ```
 
-エラーが発生せず、`trykernel.elf` が生成されればビルドは成功です。
+エラーが発生せず、`build/trykernel.elf` が生成されればビルドは成功です。
 
 生成物を削除して最初からビルドし直す場合は、次のように実行します。
 
@@ -504,12 +512,12 @@ make
 
 ### 2.5 ELFのメモリ配置を確認する
 
-ビルドで生成された `trykernel.elf` のメモリ配置を確認します。
+ビルドで生成された `build/trykernel.elf` のメモリ配置を確認します。
 
 PowerShellで次のコマンドを実行します。
 
 ```powershell
-arm-none-eabi-size -A trykernel.elf
+arm-none-eabi-size -A build/trykernel.elf
 ```
 
 私の環境では、次のような結果になりました（主要部分を抜粋）。
@@ -547,9 +555,103 @@ boot2               256   268435456
 
 ---
 
-## 3. Debug ProbeとOpenOCDを準備する
+## 3. デバッグ環境の構築
 
-### 3.1 OpenOCDをインストールする
+### 3.1 MSYS2 GDB Multiarchを準備する
+
+Try KernelのデバッグにはGDBを使用します。
+
+本記事では、日本語コメントの表示とPython 3の動作を確認できた、MSYS2のGDB Multiarchを使用します。
+
+#### MSYS2をインストールする
+
+[MSYS2の公式サイト](https://www.msys2.org/)からWindows用インストーラをダウンロードし、インストールします。
+
+本記事ではx64版を使用し、デフォルトの設定でインストールしました。
+
+インストール先は次のとおりです。
+
+```text
+C:\msys64
+```
+
+#### GDB Multiarchをインストールする
+
+MSYS2 UCRT64のターミナルを起動し、次のコマンドを実行します。
+
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gdb-multiarch
+```
+
+GDB本体と必要な依存パッケージがインストールされます。
+
+GDBの実行ファイルは次の場所に配置されます。
+
+```text
+C:\msys64\ucrt64\bin\gdb-multiarch.exe
+```
+
+#### PowerShellのプロファイルを設定する
+
+PowerShellからGDB Multiarchを起動できるように、プロファイルに設定を追加します。
+
+PowerShell 7で、次のコマンドを実行してプロファイルの保存先を確認します。
+
+```powershell
+$PROFILE
+```
+
+表示されたファイルをテキストエディタで開き、既存の設定は変更せず、末尾に次の内容を追加します。
+
+```powershell
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
+function gdb-multiarch {
+    & "C:\msys64\ucrt64\bin\gdb-multiarch.exe" -iex "set osabi none" @args
+}
+```
+
+コンソールの出力文字コードをUTF-8に設定し、`gdb-multiarch`をPowerShellから実行できるようにしています。
+
+また、`-iex "set osabi none"`は、RP2040のベアメタル環境向けにOS ABIを指定するための設定です。
+
+設定を反映します。
+
+```powershell
+. $PROFILE
+```
+
+#### インストールを確認する
+
+PowerShellで次のコマンドを実行します。
+
+```powershell
+gdb-multiarch --version
+```
+
+私の環境では、次のバージョンを使用しました。
+
+```text
+GNU gdb (GDB) 18.1
+```
+
+続いて、コンソールの文字コードを確認します。
+
+```powershell
+[Console]::OutputEncoding.CodePage
+```
+
+実行結果：
+
+```text
+65001
+```
+
+`65001`はUTF-8を示します。
+
+これでGDB Multiarchの準備は完了です。
+
+### 3.2 OpenOCDをインストールする
 
 Raspberry Pi Picoへのプログラムの書き込みやデバッグには、OpenOCDを使用します。
 
@@ -614,14 +716,15 @@ xPack Open On-Chip Debugger 0.12.0+dev-02228-ge5888bda3-dirty (2025-10-04-22:44)
 
 バージョンが表示されれば、OpenOCDの準備は完了です。
 
-### 3.2 Pico WをDebug Probeにする
+### 3.3 Pico WをDebug Probeにする
 
 本記事では、Raspberry Pi Pico WをDebug Probeとして使用します。
 
 Debug Probeは、PC上のOpenOCDとターゲットとなるRP2040の間に入り、
 SWDによるデバッグ通信を行うためのものです。
 
-市販のRaspberry Pi Debug Probeを使用することもできますが、
+市販のRaspberry Pi Debug Probeを使用することもできます。
+また、Pico Wだけでなく、通常のPicoもDebug Probeとして使用できます。
 今回は手持ちのPico Wを使用しました。
 
 #### Debug Probeのファームウェアを取得する
@@ -638,7 +741,7 @@ https://github.com/raspberrypi/debugprobe/releases
 debugprobe_on_pico.uf2
 ```
 
-これは、PicoシリーズをDebug Probeとして動作させるためのファームウェアです。
+これは、RP2040を搭載したPico / Pico WをDebug Probeとして動作させるためのファームウェアです。
 
 #### Pico Wにファームウェアを書き込む
 
@@ -681,13 +784,12 @@ OK      USBDevice  CMSIS-DAP v2 Interface
 `CMSIS-DAP v2 Interface` が正常に認識されていれば、
 Debug Probe側の準備は完了です。
 
-### 3.3 ターゲットPico WとSWD接続する
+### 3.4 ターゲットPico WとSWD接続する
 
 Debug Probe用Pico Wの準備ができたら、
 Try Kernelを動かすターゲット用Pico Wと接続します。
 
-今回は、2台のPico Wをブレッドボードに取り付け、
-ジャンパワイヤで接続しました。
+以下では、2台のPico Wをジャンパワイヤで接続する場合の配線を説明します。
 
 #### SWDの配線
 
@@ -726,13 +828,15 @@ Debug Probe Pico W          Target Pico W
 
 #### 実際の接続例
 
-私は、次のようにブレッドボードを使用して接続しました。
+実際のデバッグ環境を次の写真に示します。
 
-（ここに実際の接続写真を掲載）
+<img src="/images/pico-trykernel-windows-env/debug-probe-wiring.jpg" alt="Robo Pico BoardとPico互換ボードを使用したデバッグ環境">
 
-配線が完了したら、Debug Probe用Pico WをUSBケーブルでPCに接続します。
+写真では、Robo Pico Boardをマザーボードとして使用し、Pico互換ボードをDebug Probeとして動作させています。
 
-### 3.4 OpenOCDからRP2040を認識する
+なお、写真にはSWDデバッグとは関係のない配線も含まれています。
+
+### 3.5 OpenOCDからRP2040を認識する
 
 Debug Probeとターゲット用Pico Wの接続が完了したら、
 OpenOCDを起動してRP2040を認識できることを確認します。
@@ -792,18 +896,21 @@ OpenOCDは、起動後も終了せずに動作し続けます。
 
 OpenOCDを起動したまま、別のPowerShellを開きます。
 
-`trykernel.elf` がある `part_2/sect_3` フォルダへ移動し、
+`build/trykernel.elf` がある `part_2/sect_3` フォルダへ移動し、
 GDBを起動します。
 
 ```powershell
-arm-none-eabi-gdb trykernel.elf
+gdb-multiarch build/trykernel.elf
 ```
 
-正常に起動すると、`trykernel.elf` のデバッグ情報が読み込まれ、
+正常に起動すると、GDB Multiarchのバージョン情報などが表示された後、
+`build/trykernel.elf` のデバッグ情報が読み込まれ、
 GDBのプロンプトが表示されます。
 
 ```text
-Reading symbols from trykernel.elf...
+GNU gdb (GDB) 18.1
+（途中省略）
+Reading symbols from build/trykernel.elf...
 (gdb)
 ```
 
@@ -821,7 +928,7 @@ GDBから、OpenOCDが待ち受けているポート3333へ接続します。
 
 ### 4.2 Try Kernelを書き込む
 
-`trykernel.elf` をターゲットのフラッシュメモリへ書き込みます。
+`build/trykernel.elf` をターゲットのフラッシュメモリへ書き込みます。
 
 ```text
 (gdb) load
@@ -833,8 +940,8 @@ GDBから、OpenOCDが待ち受けているポート3333へ接続します。
 Loading section boot2, size 0x100 lma 0x10000000
 Loading section .text, size 0xae4 lma 0x10000100
 Loading section .ARM.exidx, size 0x8 lma 0x10000be4
-Start address 0x10000854, load size 3052
-Transfer rate: 623 bytes/sec, 1017 bytes/write.
+Start address 0x100007c0, load size 3052
+Transfer rate: 628 bytes/sec, 1017 bytes/write.
 ```
 
 エラーが発生せず、各セクションの書き込み結果が表示されれば書き込みは完了です。
@@ -847,12 +954,32 @@ Transfer rate: 623 bytes/sec, 1017 bytes/write.
 ここまでの手順で、Try Kernelをビルドし、
 Debug Probeを経由してターゲットのPico Wへ書き込むところまで確認できました。
 
+書き込み後、次のコマンドでプログラムの実行を再開します。
+
+```text
+(gdb) continue
+Continuing.
+```
+
+今回のプログラムはシリアルへのメッセージ出力を行わないため、
+実行中にシリアルへ何も表示されなくても問題ありません。
+
+実行中に `Ctrl+C` を押すと、ターゲットを停止してGDBに戻れます。
+私の環境では、`main()` から呼び出された `delay_ms()` の実行を確認できました。
+
+```text
+(gdb) bt
+#0  0x1000085c in delay_ms (ms=500) at application/main.c:11
+#1  0x10000898 in main () at application/main.c:25
+```
+
 今回の環境で確認できた内容は次のとおりです。
 
 - OpenOCDからRP2040のCortex-M0+ `core0` / `core1` を認識できる
-- GDBからOpenOCDへ接続できる
+- GDB MultiarchからOpenOCDへ接続できる
 - GDBからターゲットのreset / haltを実行できる
-- `trykernel.elf` の `boot2` / `.text` などをフラッシュメモリへ書き込める
+- `build/trykernel.elf` の `boot2` / `.text` などをフラッシュメモリへ書き込める
+- `continue` で実行を再開し、`main()` と `delay_ms()` の動作を確認できる
 
 OpenOCDでは、次のようにRP2040の2つのコアが認識されました。
 
@@ -870,7 +997,7 @@ ELFの各セクションを書き込むことができました。
 Loading section boot2, size 0x100 lma 0x10000000
 Loading section .text, size 0xae4 lma 0x10000100
 Loading section .ARM.exidx, size 0x8 lma 0x10000be4
-Start address 0x10000854, load size 3052
+Start address 0x100007c0, load size 3052
 ```
 
 これで、Eclipseを使用せず、
@@ -891,7 +1018,8 @@ Start address 0x10000854, load size 3052
 | 開発環境 | Eclipse | PowerShell + GNU Make |
 | ビルド | Eclipseのプロジェクト設定 | Makefile |
 | コンパイラ | GNU Arm Embedded GCC | xPack GNU Arm Embedded GCC |
-| デバッグ | OpenOCD + Picoprobe | OpenOCD + CMSIS-DAP |
+| GDB | GNU Arm Embedded GDB | MSYS2 GDB Multiarch |
+| デバッグ | OpenOCD + Picoprobe | xPack OpenOCD + CMSIS-DAP |
 | Debug Probe | Picoprobe | 現行のDebug Probe firmwareを書き込んだPico W |
 | ターゲット | Raspberry Pi Pico | Raspberry Pi Pico W |
 
