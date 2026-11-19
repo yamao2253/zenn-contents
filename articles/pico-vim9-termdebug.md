@@ -26,14 +26,15 @@ published: true
 | エディタ | GVim 9.0（64bit版） |
 | デバッグ対象 | Raspberry Pi Pico W（RP2040） |
 | デバッグプローブ | Pico Wを使用したCMSIS-DAP Debug Probe |
-| GDB | xPack GNU Arm Embedded GDB 15.2.90 |
-| OpenOCD | xPack OpenOCD 0.12.0 |
+| GDB | MSYS2 GDB Multiarch 18.1 |
+| OpenOCD | xPack OpenOCD 0.12.0-7.1 |
 | 対象プログラム | Try Kernel（`part_5`） |
 
 OpenOCDとGDBのインストール、デバッグプローブの準備、配線については、前回までの記事で紹介しています。
 
-- [Windows 11でRaspberry Pi PicoのTry Kernel開発環境を構築する](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)
+- [「ラズパイPicoで1500行 ゼロから作るOS」を2026年に動かす](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)
 - [OpenOCDとGDBでRaspberry Pi Picoをデバッグする](https://zenn.dev/helowota/articles/pico-openocd-gdb-debug)
+- [Windows 11でGDBの日本語文字化けを解消 ― MSYS2 GDB Multiarchを使う](https://zenn.dev/helowota/articles/pico-gdb-multiarch-windows-env)
 
 今回は、これらの環境が構築済みであることを前提とします。
 
@@ -66,7 +67,7 @@ Vimの `termdebug` を使うと、GDBのデバッグ機能をそのまま利用�
 
 今回、特に便利だと感じたのは、ブレークポイントで停止すると、その場所のソースコードが自動的に表示されることです。
 
-また、ブレークポイントを設定する際に、関数名や行番号をGDBへ入力する必要がなく、ソースコード上のブレークポイントを設定したい行にカーソルを置いて :Break を実行できます。
+また、ブレークポイントを設定する際に、関数名や行番号をGDBへ入力する必要がなく、ソースコード上のブレークポイントを設定したい行にカーソルを置いて `:Break` を実行できます。
 
 ---
 
@@ -74,23 +75,30 @@ Vimの `termdebug` を使うと、GDBのデバッグ機能をそのまま利用�
 
 Vimの `termdebug` は標準プラグインですが、使用するには `packadd` による読み込みが必要です。
 
-また、`termdebug` が使用するGDBを指定するため、変数 `g:termdebugger` に組込み開発用の `arm-none-eabi-gdb` を設定します。
+また、今回はMSYS2のGDB Multiarchを使用するため、`g:termdebug_config` にGDBの実行ファイルと起動オプションを設定します。
 
 GVimで次のコマンドを実行します。
 
 ```vim
 :packadd termdebug
-:let g:termdebugger = 'arm-none-eabi-gdb'
+:let g:termdebug_config = {'command': ['C:/msys64/ucrt64/bin/gdb-multiarch.exe', '-iex', 'set osabi none']}
 ```
 
-続いて、設定を確認します。
+`g:termdebug_config` の `command` には、使用するGDBの実行ファイルと起動引数をリスト形式で指定します。
 
-```vim
-:echo exists(':Termdebug')
-:echo g:termdebugger
-```
+今回指定している内容は次のとおりです。
 
->それぞれ 2、arm-none-eabi-gdb と表示されれば、設定は成功です。2 は、:Termdebug コマンドが利用可能であることを示しています。
+| 指定 | 内容 |
+|---|---|
+| `C:/msys64/ucrt64/bin/gdb-multiarch.exe` | MSYS2 GDB Multiarchの実行ファイル |
+| `-iex` | GDBの初期化処理より前にコマンドを実行するオプション |
+| `set osabi none` | OS ABIをベアメタル環境向けに設定 |
+
+GDB MultiarchはWindows向けにビルドされているため、そのまま起動するとOS ABIがWindowsになります。
+
+今回はRP2040上で動作するTry Kernelをデバッグするため、起動時に `set osabi none` を実行します。
+
+この設定により、GDB起動後に毎回OS ABIを変更する必要がなくなります。
 
 ## 設定の自動化
 
@@ -100,12 +108,44 @@ Windowsの場合は、通常ホームディレクトリにある `_vimrc` に以
 
 ```vim
 packadd termdebug
-let g:termdebugger = 'arm-none-eabi-gdb'
+
+let g:termdebug_config = {
+    \ 'command': [
+    \   'C:/msys64/ucrt64/bin/gdb-multiarch.exe',
+    \   '-iex',
+    \   'set osabi none'
+    \ ]
+    \ }
 ```
 
 なお、`_vimrc` に記述する場合は、先頭の `:` は不要です。
 
 設定ファイルの場所は、GVimで `:echo $MYVIMRC` と入力すると確認できます。
+
+## 設定を確認する
+
+GVimを再起動し、次のコマンドでtermdebugを起動します。
+
+```vim
+:Termdebug
+```
+
+GDBターミナルで、OS ABIを確認します。
+
+```gdb
+show osabi
+```
+
+実行結果は次のとおりです。
+
+```text
+The current OS ABI is "none".
+The default OS ABI is "Windows".
+```
+
+OS ABIが `none` になっていることを確認できました。
+
+これで、GDB Multiarchを使用するための設定は完了です。
 
 ---
 
@@ -185,17 +225,13 @@ target remote localhost:3333
 
 接続に成功すると、GVim側に現在の実行位置のソースコードが表示されます。
 
-今回の環境では、`kernel/dispatch.S` が自動的に開かれ、48行目が強調表示されました。
+表示されるファイルや行番号は、接続時点のRP2040の実行状態によって異なります。
+
+今回の検証でも、GDB Multiarchの停止位置に合わせてソースコードが自動的に表示されることを確認できました。
 
 <img src="/images/pico-vim9-termdebug/termdebug-connected.png" alt="OpenOCD接続後、現在の実行位置が表示されたtermdebug画面" width="700">
 
 このように、**GDBの実行位置とVimのソースコード表示が連動している**ことが確認できます。
-
-続いて、RP2040をリセットして停止します。
-
-```gdb
-monitor reset halt
-```
 
 ---
 
@@ -209,7 +245,7 @@ OpenOCDへの接続が完了し、GVimにソースコードが表示されまし
 
 まず、Try Kernelの `main` 関数にブレークポイントを設定します。
 
-OpenOCDへの接続直後は `kernel/dispatch.S` が表示されているので、Vimの通常操作で `main` 関数が定義されている `kernel/inittsk.c` を開きます。
+OpenOCDへの接続後、Vimの通常操作で `main` 関数が定義されている `kernel/inittsk.c` を開きます。
 
 ```vim
 :e C:/home/<ユーザ名>/repos/src/pico/interface_trykernel/part_5/kernel/inittsk.c
@@ -227,7 +263,13 @@ OpenOCDへの接続直後は `kernel/dispatch.S` が表示されているので�
 
 左端に赤いブレークポイント番号 `01` が表示され、設定できたことが確認できます。
 
-続いて、実行を再開します。
+今回は `main` 関数の先頭付近で停止させるため、GDBターミナルでRP2040をリセットします。
+
+```gdb
+monitor reset halt
+```
+
+その後、GVimのソースコード表示画面で実行を再開します。
 
 ```vim
 :Continue
@@ -378,4 +420,4 @@ OpenOCDへの接続、ソースコードへの実行位置の追従、ブレー�
 
 もちろん、変数の継続監視やメモリダンプなど、GDBターミナルで操作する機能もあります。しかし、ソースコード上での操作とGDBの機能を必要に応じて使い分けられるため、思っていた以上に実用的な環境になりました。
 
-今後は、VSCodeやNeovimでも同様のデバッグ環境を構築し、使い勝手の違いを確認してみたいと思います。
+VSCodeを使用したデバッグ環境についても、別の記事で紹介しています。
