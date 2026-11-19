@@ -34,7 +34,6 @@ OpenOCDとGDBのインストール、デバッグプローブの準備、配線�
 
 - [「ラズパイPicoで1500行 ゼロから作るOS」を2026年に動かす](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)
 - [OpenOCDとGDBでRaspberry Pi Picoをデバッグする](https://zenn.dev/helowota/articles/pico-openocd-gdb-debug)
-- [Windows 11でGDBの日本語文字化けを解消 ― MSYS2 GDB Multiarchを使う](https://zenn.dev/helowota/articles/pico-gdb-multiarch-windows-env)
 
 今回は、これらの環境が構築済みであることを前提とします。
 
@@ -151,16 +150,9 @@ OS ABIが `none` になっていることを確認できました。
 
 # termdebugとOpenOCD/GDBでTry Kernelをデバッグする
 
-ここからは、実際にRaspberry Pi Pico上で動作するプログラムを使って、`termdebug` によるデバッグを試してみます。
+ここからは、実際にRaspberry Pi Pico上で動作するTry Kernelを使って、`termdebug`によるデバッグを試してみます。
 
-今回のデバッグ対象は、Interface誌の特集「ラズパイPicoで1500行 ゼロから作るOS」で紹介されている自作OS「Try Kernel」です。
-
-Try Kernelの開発環境の構築方法や、OpenOCDとGDBを使ったコマンドラインでのデバッグ方法については、以下の記事で紹介しています。
-
-- [Windows 11でRaspberry Pi PicoのTry Kernel開発環境を構築する](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)
-- [Raspberry Pi PicoをOpenOCDとGDBでデバッグする](https://zenn.dev/helowota/articles/pico-openocd-gdb-debug)
-
-今回は、この環境を利用して、Vimのソースコード表示画面とGDBを連携させたデバッグ操作を確認します。
+今回は、Vimのソースコード表示画面とGDBを連携させたデバッグ操作を確認します。
 
 ## OpenOCDを起動する
 
