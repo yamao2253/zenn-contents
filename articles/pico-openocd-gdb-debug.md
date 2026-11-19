@@ -212,35 +212,37 @@ GDBを起動する際には、デバッグ対象のELFファイルを指定し�
 
 ELFファイルには、プログラムの実行コードに加えて、関数名や変数名などのシンボル情報や、ビルド時の設定によってはソースコードとの対応関係など、デバッグに必要な情報が含まれています。
 
+本記事では、MSYS2のGDB Multiarchを使用します。導入方法については、[Try Kernelの開発環境構築記事](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)を参照してください。
+
+また、Windows環境でのGDBの選定と日本語表示への対応については、[GDB Multiarchの導入記事](https://zenn.dev/helowota/articles/pico-gdb-multiarch-windows-env)で紹介しています。
+
 別のPowerShellを開き、Try Kernelの `part_5` ディレクトリから次のコマンドでGDBを起動します。
 
 ```powershell
-arm-none-eabi-gdb build/trykernel.elf
+gdb-multiarch build/trykernel.elf
 ```
 
 GDBが起動すると、ELFファイルのシンボル情報が読み込まれます。
 
 ```text
-GNU gdb (xPack GNU Arm Embedded GCC x86_64) 15.2.90.20241130-git
-...
+GNU gdb (GDB) 18.1
+（途中省略）
 Reading symbols from build/trykernel.elf...
 (gdb)
 ```
 
 GDBが起動したら、`target remote` コマンドを使用してOpenOCDのGDBサーバに接続します。
 
-OpenOCDは起動時にGDBサーバを立ち上げ、GDBからの接続を待ち受けています。`localhost:3333` はその接続先で、`localhost` は同じPC、`3333` はGDBサーバのポート番号を表します。
-
 ```text
 (gdb) target remote localhost:3333
 Remote debugging using localhost:3333
-disp_020 () at kernel/dispatch.S:50
-50          beq     disp_020
+0x10000746 in init_section () at boot/reset_hdr.c:172
+172             *top++ = 0;
 ```
 
-続いて、RP2040をリセットして停止します。
+`localhost:3333` は、同じPC上で動作しているOpenOCDのGDBサーバを指定しています。
 
-ここでは、GDBからOpenOCDのコマンドを実行するための `monitor` コマンドを使用します。`reset halt` はOpenOCD側のコマンドで、マイコンをリセットした後、実行を停止させます。
+接続後、RP2040をリセットして停止します。
 
 ```text
 (gdb) monitor reset halt
@@ -250,7 +252,9 @@ xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
 xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
 ```
 
-RP2040には2つのCPUコアがあり、今回のログでは両方のコアが停止したことを確認できます。
+`monitor` はGDBからOpenOCDのコマンドを実行するためのコマンドです。`reset halt` は、マイコンをリセットして実行を停止させます。
+
+RP2040にはCortex-M0+が2コア搭載されており、両方のコアが停止したことを確認できます。
 
 # 基本的なデバッグ操作
 
@@ -279,13 +283,9 @@ GUIデバッガでおなじみの操作を中心に、対応するGDBコマン�
 
 ```text
 (gdb) break main
-warning: could not convert 'main' from the host encoding (CP1252) to UTF-32.
-This normally should not happen, please file a bug report.
 Breakpoint 1 at 0x1000093c: file kernel/inittsk.c, line 31.
 Note: automatically using hardware breakpoints for read-only addresses.
 ```
-
-文字コード変換に関するWarningが出ていますが、`main` 関数へのブレークポイント設定は成功しています。
 
 続いて、`continue` でプログラムの実行を再開します。
 
@@ -294,12 +294,12 @@ Note: automatically using hardware breakpoints for read-only addresses.
 Continuing.
 
 Thread 1 "rp2040.core0" hit Breakpoint 1, main () at kernel/inittsk.c:31
-31          tskid_ini = tk_cre_tsk(&ctsk_ini);
+31          tskid_ini = tk_cre_tsk(&ctsk_ini);              // 初期タスク生成
 ```
 
 `kernel/inittsk.c` の31行目で停止しました。
 
-なお、上記の31行目には実際には日本語コメントがありますが、今回のGDBでは文字化けしているため、掲載時にコメント部分を省略しています。
+また、日本語コメントの「初期タスク生成」も正常に表示されています。
 
 ### デバッグ情報について
 
@@ -311,7 +311,7 @@ CFLAGS += -g
 
 デバッグ情報には、ソースコードの行番号や変数などに関する情報が含まれます。これにより、GDBでソースコードを追いながらステップ実行したり、変数の値を確認したりできます。
 
-Try Kernelのビルド環境とMakefileの設定については、[「Windows 11でRaspberry Pi PicoのTry Kernel開発環境を構築する」](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)で紹介しています。
+Try Kernelのビルド環境とMakefileの設定については、[「ラズパイPicoで1500行 ゼロから作るOS」を2026年に動かす](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)で紹介しています。
 
 ## ステップ実行する
 
@@ -325,11 +325,11 @@ next
 
 ```text
 (gdb) step
-tk_sta_tsk (tskid=1, stacd=0) at kernel/task_mange.c:52
-52          ER      err = E_OK;
+tk_sta_tsk (tskid=0, stacd=125000000) at kernel/task_mange.c:49
+49      {
 ```
 
-今回の実行では、`tk_sta_tsk()` 関数の内部に入り、`kernel/task_mange.c` の52行目で停止しました。
+今回の実行では、`tk_sta_tsk()` 関数の内部に入り、`kernel/task_mange.c` の49行目で停止しました。
 
 ## レジスタやメモリを確認する
 
@@ -340,7 +340,7 @@ CPUレジスタを表示するには、`info registers` コマンドを使用し
 r0             0x1                 1
 r1             0x0                 0
 r2             0x1                 1
-r3             0x1                 1
+r3             0x0                 0
 r4             0x0                 0
 r5             0x20041f01          537140993
 r6             0x18000000          402653184
@@ -351,9 +351,9 @@ r10            0xffffffff          -1
 r11            0xffffffff          -1
 r12            0x3000              12288
 sp             0x2003ffc8          0x2003ffc8
-lr             0x10000957          268437847
-pc             0x10000c1a          0x10000c1a <tk_sta_tsk+10>
-xpsr           0x1000000           16777216
+lr             0x1000094b          268437835
+pc             0x10000c10          0x10000c10 <tk_sta_tsk>
+xpsr           0x41000000          1090519040
 msp            0x2003ffc8          0x2003ffc8
 psp            0xfffffffc          0xfffffffc
 primask        0x0                 0
@@ -364,16 +364,16 @@ control        0x0                 0
 
 例えば、`pc` はプログラムカウンタ、`sp` はスタックポインタ、`lr` はリンクレジスタです。
 
-今回の `pc` には `tk_sta_tsk+10` と表示されており、現在の命令位置が関数名とオフセットで示されています。
+今回の `pc` には `tk_sta_tsk` と表示されており、現在の命令位置が関数名で示されています。
 
 メモリの内容を確認するには、`x` コマンドを使用します。
 
 ```text
 (gdb) x/16wx 0x20000000
-0x20000000 <ctsk_ini>:     0x00000021  0x1000090d  0x00000001  0x00000100
-0x20000010 <ctsk_ini+16>:  0x200000b0  0x61636969  0x00000000  0x00000000
-0x20000020 <dev_tbl+12>:   0x00000000  0x00000000  0x10001a41  0x10001e6d
-0x20000030 <dev_tbl+28>:   0x10001f01  0x62636969  0x00000000  0x00000001
+0x20000000 <ctsk_ini>:  0x00000021      0x10000901      0x00000001      0x00000100
+0x20000010 <ctsk_ini+16>:       0x20000064      0x00000008      0x00000000      0x00000000
+0x20000020 <dev_tbl+12>:        0x00000001      0x00000001      0x00000321      0x100016a9
+0x20000030 <dev_tbl+28>:        0x0000000a      0x00000400      0x20000ae0      0x00000321
 ```
 
 この例では、SRAMの先頭アドレスから32ビット単位で16個の値を16進数表示しています。
@@ -386,13 +386,6 @@ control        0x0                 0
 
 また、`ctsk_ini` や `dev_tbl` のように、対応するシンボル名も表示されています。
 
-## Windows環境での文字コードについて
-
-今回使用したxPack版GDBでは、日本語コメントの文字化けと、文字コード変換に関するWarningが発生しました。
-
-PowerShellのコンソールをUTF-8に変更しても、GDB側の文字コード認識はCP1252のままでした。また、`set charset UTF-8` も受け付けられませんでした。
-
-原因の特定と対処は今後の課題としますが、ブレークポイントやステップ実行、レジスタ・メモリの確認など、基本的なデバッグ操作は正常に動作しています。
 
 # OpenOCDとGDBの終了
 
@@ -405,7 +398,7 @@ A debugging session is active.
         Inferior 1 [Remote target] will be detached.
 
 Quit anyway? (y or n) y
-Detaching from program: C:\home\<ユーザ名>\repos\src\pico\interface_trykernel\part_5\build\trykernel.elf, Remote target
+Detaching from program: C:/home/<ユーザ名>/repos/src/pico/interface_trykernel/part_5/build/trykernel.elf, Remote target
 Ending remote debugging.
 [Inferior 1 (Remote target) detached]
 ```
@@ -422,6 +415,9 @@ OpenOCDとGDBは、それぞれ独立したツールですが、組み合わせ�
 
 OpenOCDがデバッグプローブを介したハードウェア制御を担当し、GDBがブレークポイントやステップ実行などのデバッグ操作を担当します。
 
-今回はコマンドラインから操作しましたが、VSCodeなどのGUIを利用する場合も、基本的な仕組みは変わりません。
+今回はコマンドラインから操作しましたが、VSCodeやVim9のGUIを利用する場合も、基本的な仕組みは変わりません。
 
-次回は、今回のコマンドライン操作がGUI上でどのように実現されるのかを確認したいと思います。
+GUIを使用したデバッグについては、以下の記事で紹介しています。
+
+- [VSCodeでCortex-Debugを使ってRaspberry Pi Picoをデバッグする](https://zenn.dev/helowota/articles/pico-vscode-cortex-debug)
+- [Vim9のTermdebugでRaspberry Pi Picoをデバッグする](https://zenn.dev/helowota/articles/pico-vim9-termdebug)
