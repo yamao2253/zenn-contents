@@ -3,7 +3,7 @@ title: "GDBでRaspberry Pi Picoの変数をウォッチする"
 emoji: "🔍"
 type: "tech"
 topics: ["gdb", "raspberrypi", "pico", "debug", "embedded"]
-published: false
+published: true
 ---
 
 # はじめに
@@ -305,11 +305,13 @@ New value = 1
 
 ### `print`、`display`、`watch`の違い
 
+いずれのコマンドも変数や式を指定できますが、ここでは変数を指定した場合の動作を比較します。
+
 | コマンド | 用途 |
 |---|---|
 | `print` | 現在の変数の値を表示する |
 | `display` | プログラムが停止するたびに値を自動表示する |
-| `watch` | 監視対象の値が変更されたときに停止する |
+| `watch` | 監視対象の値が変化したときに停止する |
 
 似ているようですが、役割はそれぞれ異なります。
 
