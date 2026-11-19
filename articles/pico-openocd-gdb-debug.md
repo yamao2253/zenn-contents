@@ -212,9 +212,7 @@ GDBを起動する際には、デバッグ対象のELFファイルを指定し�
 
 ELFファイルには、プログラムの実行コードに加えて、関数名や変数名などのシンボル情報や、ビルド時の設定によってはソースコードとの対応関係など、デバッグに必要な情報が含まれています。
 
-本記事では、MSYS2のGDB Multiarchを使用します。導入方法については、[Try Kernelの開発環境構築記事](https://zenn.dev/helowota/articles/pico-trykernel-windows-env)を参照してください。
-
-また、Windows環境でのGDBの選定と日本語表示への対応については、[GDB Multiarchの導入記事](https://zenn.dev/helowota/articles/pico-gdb-multiarch-windows-env)で紹介しています。
+本記事では、MSYS2のGDB Multiarchを使用します。
 
 別のPowerShellを開き、Try Kernelの `part_5` ディレクトリから次のコマンドでGDBを起動します。
 
