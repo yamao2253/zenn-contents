@@ -107,7 +107,14 @@ break tk_cre_tsk
 
 実行結果：
 
-<!-- TODO: 関数名指定ブレークポイントの番号とアドレスを実機で取得する -->
+```text
+Breakpoint 1 at 0x10000ad0: file kernel/task_mange.c, line 18.
+Note: automatically using hardware breakpoints for read-only addresses.
+```
+
+`kernel/task_mange.c`の18行目に、ブレークポイント番号`1`が設定されました。
+
+また、読み出し専用アドレスに対して、GDBが自動的にハードウェアブレークポイントを使用することも表示されています。
 
 設定済みのブレークポイントを一覧表示します。
 
@@ -117,9 +124,23 @@ info breakpoints
 
 実行結果：
 
-<!-- TODO: 設定一覧を実機で取得する -->
+```text
+Num     Type           Disp Enb Address    What
+1       breakpoint     keep y   0x10000ad0 in tk_cre_tsk at kernel/task_mange.c:18
+```
 
-`info breakpoints`では、ブレークポイント番号や有効・無効、設定位置を確認できます。
+`info breakpoints`では、設定済みのブレークポイントの状態を確認できます。
+
+| 項目 | 表示内容 | 意味 |
+|---|---|---|
+| Num | `1` | ブレークポイント番号 |
+| Type | `breakpoint` | ブレークポイントの種類 |
+| Disp | `keep` | 停止後も設定を保持する |
+| Enb | `y` | 有効になっている |
+| Address | `0x10000ad0` | 設定されたアドレス |
+| What | `in tk_cre_tsk at kernel/task_mange.c:18` | 関数名とソースコード上の位置 |
+
+ブレークポイント番号は、後で設定を変更したり、削除したりするときに使用します。
 
 続いてリセットして実行します。
 
@@ -130,9 +151,23 @@ continue
 
 実行結果：
 
-<!-- TODO: tk_cre_tskの入口で停止することを実機で確認する -->
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+Continuing.
 
-`main()`から処理を追わなくても、**目的の関数が呼ばれた場所で停止できる**ことを確認します。
+Thread 1 "rp2040.core0" hit Breakpoint 1, tk_cre_tsk (pk_ctsk=0x20000000 <ctsk_ini>)
+    at kernel/task_mange.c:18
+18          if((pk_ctsk->tskatr & ~TA_RNG3) != (TA_HLNG|TA_USERBUF)) return E_RSATR;
+```
+
+第2回で`step`を使って関数内部に入ったときと同じ、`kernel/task_mange.c`の18行目で停止しました。
+
+引数`pk_ctsk`が`ctsk_ini`を指していることから、初期タスクの生成処理で停止したことも分かります。
+
+`main()`からステップ実行で処理を追わなくても、**関数名を指定するだけで、調べたい関数の内部に直接停止できる**ことを確認できました。
 
 ## 2. 関数の途中で停止する - break ファイル名:行番号
 
@@ -154,7 +189,16 @@ break inittsk.c:32
 
 実行結果：
 
-<!-- TODO: 行番号指定ブレークポイントの設定結果を取得する -->
+```text
+Deleted breakpoint 1
+Breakpoint 2 at 0x1000093e: file kernel/inittsk.c, line 32.
+```
+
+`clear`は、指定した場所に設定されているブレークポイントを削除するコマンドです。
+
+今回は`tk_cre_tsk()`に設定していたブレークポイント番号`1`を削除し、`inittsk.c`の32行目にブレークポイント番号`2`を設定しました。
+
+続いてリセットして実行します。
 
 ```gdb
 monitor reset halt
@@ -163,21 +207,36 @@ continue
 
 実行結果：
 
-<!-- TODO: inittsk.c:32への停止結果を取得する -->
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+Continuing.
 
-`ファイル名:行番号`を使えば、関数の途中にも停止位置を設定できます。
+Thread 1 "rp2040.core0" hit Breakpoint 2, main () at kernel/inittsk.c:32
+32          tk_sta_tsk(tskid_ini, 0);                       // 初期タスク実行
+```
+
+初期タスクの生成処理を終え、`tk_sta_tsk()`を呼び出す直前で停止しました。
+
+第2回ではステップ実行でこの位置まで進めましたが、今回はブレークポイントを設定することで直接停止できました。
+
+このように、**ファイル名と行番号を指定すれば、関数の途中にある特定の処理でも停止できます。**
 
 同名のファイルが複数ある場合は、パスを含めて指定する方法もあります。
 
-:::message
-`inittsk.c:32`は第1回の実測結果と一致する行です。ただし、今回も実機で同じ位置に停止することを確認してから確定事項として記載します。
-:::
-
-## 3. 条件を満たす場合だけ停止する - break ... if
+## 3. 条件を満たす場合だけ停止する - break ... if / condition
 
 関数が繰り返し呼ばれる場合、毎回止める必要はありません。
 
-今回は、優先度`1`が指定されたタスク生成だけを調べます。
+GDBでは、ブレークポイントに条件を設定し、特定の条件を満たした場合だけ停止させることができます。
+
+今回は、タスク生成時に指定される優先度を条件にして、停止する位置を絞り込みます。
+
+### 優先度1のタスク生成で停止する
+
+まず、優先度`1`が指定されたタスク生成で停止するように設定します。
 
 ```gdb
 clear inittsk.c:32
@@ -186,7 +245,14 @@ break tk_cre_tsk if pk_ctsk->itskpri == 1
 
 実行結果：
 
-<!-- TODO: 条件付きブレークポイントの設定結果を取得する -->
+```text
+Deleted breakpoint 2
+Breakpoint 3 at 0x10000ad0: file kernel/task_mange.c, line 18.
+```
+
+`break`コマンドの`if`以降に条件式を指定すると、その式が真の場合に停止します。
+
+続いてリセットして実行します。
 
 ```gdb
 monitor reset halt
@@ -195,9 +261,21 @@ continue
 
 実行結果：
 
-<!-- TODO: 初期タスク生成時に停止することを実機で確認する -->
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+Continuing.
 
-停止したら、関数の引数を確認します。
+Thread 1 "rp2040.core0" hit Breakpoint 3, tk_cre_tsk (pk_ctsk=0x20000000 <ctsk_ini>)
+    at kernel/task_mange.c:18
+18          if((pk_ctsk->tskatr & ~TA_RNG3) != (TA_HLNG|TA_USERBUF)) return E_RSATR;
+```
+
+引数`pk_ctsk`が`ctsk_ini`を指していることから、初期タスクの生成処理で停止したことが分かります。
+
+条件に使用した優先度の値も確認します。
 
 ```gdb
 print pk_ctsk->itskpri
@@ -205,21 +283,155 @@ print pk_ctsk->itskpri
 
 実行結果：
 
-<!-- TODO: itskpri=1の実測結果を取得する -->
+```text
+$1 = 1
+```
 
-`if`以降に指定した式が真の場合に停止します。
+指定した条件と一致しています。
 
-今回のソースでは初期タスクだけが優先度`1`ですが、**優先度で絞り込んでいるのであって、初期タスクIDを判定しているわけではありません。**
+ただし、初期タスクは最初に生成されるため、条件を指定しないブレークポイントでも同じところで停止します。
 
-## 4. 何回目かを指定して停止する - ignore
+これだけでは、条件に一致しない場合に停止せず通過することを確認できません。
 
-特定の関数を複数回呼ぶ場合、何回目に呼ばれたかで停止位置を絞る方法があります。
+### 条件を変更して優先度10のタスク生成で停止する
 
-`ignore`は、指定したブレークポイントについて、**次の指定回数だけ停止せずに通過する**コマンドです。
+次に、優先度`10`が指定されたタスク生成で停止するように条件を変更します。
 
-今回は、最初の3回を通過し、4回目の`tk_cre_tsk()`で止める実験を考えます。
+設定済みのブレークポイントの条件を変更するには、`condition`コマンドを使用します。
 
-まず、前の実験の条件付きブレークポイントを解除します。
+```gdb
+condition 3 pk_ctsk->itskpri == 10
+info breakpoints
+```
+
+実行結果：
+
+```text
+Num     Type           Disp Enb Address    What
+3       breakpoint     keep y   0x10000ad0 in tk_cre_tsk at kernel/task_mange.c:18
+        stop only if pk_ctsk->itskpri == 10
+        breakpoint already hit 1 time
+```
+
+ブレークポイント番号とアドレスは変わらず、停止条件だけが変更されています。
+
+再びリセットして実行します。
+
+```gdb
+monitor reset halt
+continue
+```
+
+実行結果：
+
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+Continuing.
+
+Thread 1 "rp2040.core0" hit Breakpoint 3, tk_cre_tsk (pk_ctsk=0x20000028 <ctsk_btn>)
+    at kernel/task_mange.c:18
+18          if((pk_ctsk->tskatr & ~TA_RNG3) != (TA_HLNG|TA_USERBUF)) return E_RSATR;
+```
+
+先ほどと同じ`task_mange.c`の18行目で停止しましたが、引数`pk_ctsk`が指しているのは`ctsk_ini`ではなく`ctsk_btn`です。
+
+優先度を確認します。
+
+```gdb
+print pk_ctsk->itskpri
+```
+
+実行結果：
+
+```text
+$2 = 10
+```
+
+今回は、優先度`10`が指定されたボタン検出タスクの生成処理で停止しました。
+
+さらに、`backtrace`コマンドで現在の関数の呼び出し元を確認します。
+
+```gdb
+backtrace
+```
+
+実行結果：
+
+```text
+#0  tk_cre_tsk (pk_ctsk=0x20000028 <ctsk_btn>) at kernel/task_mange.c:18
+#1  0x10001904 in usermain () at application/usermain.c:139
+#2  0x1000091a in initsk (stacd=0, exinf=0x0) at kernel/inittsk.c:25
+#3  0x00000000 in ?? ()
+```
+
+`tk_cre_tsk()`が`application/usermain.c`の139行目から呼び出されていることが分かります。
+
+初期タスクの生成処理では停止せず、その後のボタン検出タスクの生成処理まで実行されたことを確認できました。
+
+### 条件による停止位置の違い
+
+2つの実験結果を比較します。
+
+| 項目 | 優先度1を指定 | 優先度10を指定 |
+|---|---|---|
+| 条件式 | `pk_ctsk->itskpri == 1` | `pk_ctsk->itskpri == 10` |
+| ブレークポイント番号 | 3 | 3 |
+| 停止アドレス | `0x10000ad0` | `0x10000ad0` |
+| 引数が指す構造体 | `ctsk_ini` | `ctsk_btn` |
+| 生成するタスク | 初期タスク | ボタン検出タスク |
+
+同じアドレスにブレークポイントを設定していても、条件によって異なる関数呼び出しで停止することが確認できました。
+
+このように、**条件付きブレークポイントを使えば、繰り返し呼ばれる関数の中から、調べたい条件に一致する呼び出しだけを選んで停止できます。**
+
+なお、今回はタスクの優先度で絞り込んでいるのであって、タスクIDを判定しているわけではありません。
+
+## 4. 指定回数だけ通過してから停止する - ignore
+
+特定の関数が繰り返し呼ばれる場合、条件式ではなく、ブレークポイントへの到達回数で停止位置を絞り込む方法もあります。
+
+`ignore`は、指定したブレークポイントについて、次の指定回数だけ停止せずに通過するコマンドです。
+
+まず、前の実験の条件付きブレークポイントを解除し、条件を指定せずにブレークポイントを設定します。
+
+---
+
+特定の関数が繰り返し呼ばれる場合、条件式ではなく、ブレークポイントへの到達回数で停止位置を絞り込む方法もあります。
+
+今回は、「最初の3回を通過し、4回目の`tk_cre_tsk()`の呼び出しで停止する」という実験を行います。
+
+まず、前の実験の条件付きブレークポイントを解除し、条件を指定せずにブレークポイントを設定します。
+
+---
+
+特定の関数が繰り返し呼ばれる場合、条件式ではなく、ブレークポイントへの到達回数で停止位置を絞り込む方法もあります。
+
+今回は、**最初の3回を通過し、4回目の`tk_cre_tsk()`の呼び出しで停止する**ことを目指します。
+
+まず、前の実験の条件付きブレークポイントを解除し、条件を指定せずにブレークポイントを設定します。
+
+---
+
+特定の関数が繰り返し呼ばれる場合、条件式ではなく、ブレークポイントへの到達回数で停止位置を絞り込む方法もあります。
+
+今回の実験の目的は、**最初の3回を通過し、4回目の`tk_cre_tsk()`の呼び出しで停止すること**です。
+
+まず、前の実験の条件付きブレークポイントを解除し、条件を指定せずにブレークポイントを設定します。
+
+---
+
+特定の関数が繰り返し呼ばれる場合、条件式ではなく、ブレークポイントへの到達回数で停止位置を絞り込む方法もあります。
+
+今回は、次の動作を実現します。
+
+**最初の3回を通過し、4回目の`tk_cre_tsk()`の呼び出しで停止する。**
+
+まず、前の実験の条件付きブレークポイントを解除し、条件を指定せずにブレークポイントを設定します。
+
+---
 
 ```gdb
 clear tk_cre_tsk
@@ -229,17 +441,32 @@ info breakpoints
 
 実行結果：
 
-<!-- TODO: 新しいブレークポイント番号を実機で確認する -->
-
-続いて、その番号に対して`ignore`を設定します。
-
-例えば、`info breakpoints`で番号が`4`と表示された場合は、次のように指定します。
-
-```gdb
-ignore 4 3
+```text
+Deleted breakpoint 3
+Breakpoint 5 at 0x10000ad0: file kernel/task_mange.c, line 18.
+Num     Type           Disp Enb Address    What
+5       breakpoint     keep y   0x10000ad0 in tk_cre_tsk at kernel/task_mange.c:18
 ```
 
-ブレークポイント番号は設定順で変わります。**上記の`4`は例なので、実機で表示された番号に置き換えてください。**
+ブレークポイント番号`5`が設定されました。
+
+このブレークポイントに対して、最初の3回を通過するように設定します。
+
+```gdb
+ignore 5 3
+```
+
+実行結果：
+
+```text
+Will ignore next 3 crossings of breakpoint 5.
+```
+
+`ignore`の第1引数はブレークポイント番号、第2引数は停止せずに通過する回数です。
+
+ブレークポイント番号は設定順によって変わるため、`info breakpoints`で確認してから指定します。
+
+続いてリセットして実行します。
 
 ```gdb
 monitor reset halt
@@ -248,11 +475,34 @@ continue
 
 実行結果：
 
-<!-- TODO: 呼び出し4回目で停止するか、途中で実行状態が変化するかを実機で確認する -->
+```text
+[rp2040.core0] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+[rp2040.core1] halted due to debug-request, current mode: Thread
+xPSR: 0xf1000000 pc: 0x000000ea msp: 0x20041f00
+Continuing.
 
-ソースの処理が予定どおり進めば、初期タスク・ボタン検出タスク・LED制御タスク1の3回を素通りし、LED制御タスク2の生成で停止すると予想できます。
+Thread 1 "rp2040.core0" hit Breakpoint 5, tk_cre_tsk (pk_ctsk=0x20000050 <ctsk_led2>)
+    at kernel/task_mange.c:18
+18          if((pk_ctsk->tskatr & ~TA_RNG3) != (TA_HLNG|TA_USERBUF)) return E_RSATR;
+```
 
-ただし、ここまで実行されることは**まだ確認していません**。タスク切替を含むため、実際の停止状態を見て判断します。
+引数`pk_ctsk`が`ctsk_led2`を指していることから、LED制御タスク2の生成処理で停止したことが分かります。
+
+今回の実行結果を、ソースコード上の呼び出し順と照らし合わせると、次のようになります。
+
+| 呼び出し順 | 生成するタスク | 動作 |
+|---|---|---|
+| 1 | 初期タスク | 通過 |
+| 2 | ボタン検出タスク | 通過 |
+| 3 | LED制御タスク1 | 通過 |
+| 4 | LED制御タスク2 | 停止 |
+
+最初の3回を通過し、4回目の呼び出しで停止できました。
+
+注意したいのは、`ignore 5 3`が3回目に停止するという指定ではなく、3回分の停止をスキップする指定であることです。
+
+**呼び出し順が分かっている場合は、条件式を指定しなくても、調べたい呼び出しまで実行できます。**
 
 ## 5. 停止せずに値を記録する - commands / silent / printf
 
