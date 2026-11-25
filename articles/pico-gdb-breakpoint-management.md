@@ -3,7 +3,7 @@ title: "GDBでRaspberry Pi Picoのブレークポイントを設定・管理す�
 emoji: "🎯"
 type: "tech"
 topics: ["gdb", "raspberrypi", "pico", "debug", "embedded"]
-published: false
+published: true
 ---
 
 # はじめに
@@ -90,7 +90,7 @@ load
 
 以降はGDBのプロンプトでコマンドを入力します。
 
-前の項で設定したブレークポイントは、必要に応じて整理しながら進めます。
+各項で設定したブレークポイントは、必要に応じて整理しながら進めます。
 
 なお、ブレークポイント番号はGDBが設定時に割り当てるため、操作履歴によって異なります。本記事の実行結果と番号が異なる場合は、`info breakpoints`で確認した番号を使用してください。
 
