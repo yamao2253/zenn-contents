@@ -82,7 +82,7 @@ GDBからOpenOCDに接続します。
 target remote localhost:3333
 ```
 
-以降の操作はGDB上で行います。
+GDBからOpenOCDへの接続が完了したら、リセット直後のCPUの状態を確認していきます。
 
 # 最初の命令を実行する前のCPUの動作
 
@@ -236,7 +236,7 @@ MSP ──┐
 PSP ──┘
 ```
 
-ハードウェア設計におけるMUX（マルチプレクサ）のような概念で考えると理解しやすいと思います。ただし、これは実際の内部回路を示した図ではありません。
+スイッチでMSPとPSPのどちらかを選択し、SPとして使用するイメージです。ただし、これは選択の仕組みを概念的に示したものであり、実際の内部回路を示した図ではありません。
 
 Cortex-M0+にはThreadモードとHandlerモードがあり、通常のプログラムはThreadモードで、リセット以外の例外ハンドラはHandlerモードで実行されます。
 
@@ -269,7 +269,16 @@ msp            0x20041f00          0x20041f00
 psp            0xfffffffc          0xfffffffc
 ```
 
-続いて、スタックポインタの選択状態を確認するため、CONTROLレジスタを表示します。
+続いて、スタックポインタの選択状態を確認します。
+
+Threadモードでは、CONTROLレジスタのbit 1（SPSEL）の値によって、使用するスタックポインタが決まります。
+
+| SPSEL（bit 1） | 選択されるスタックポインタ |
+|---|---|
+| 0 | MSP |
+| 1 | PSP |
+
+GDBの `info registers` コマンドでCONTROLレジスタを表示し、そのbit 1の値を確認します。
 
 ```gdb
 info registers control
@@ -280,6 +289,19 @@ info registers control
 ```text
 control        0x0                 0
 ```
+
+CONTROLレジスタの値は `0x0` です。下位8ビットを2進数で表すと、次のようになります。
+
+```text
+ビット番号  7 6 5 4 3 2 1 0
+           0 0 0 0 0 0 0 0
+                       ↑
+                     SPSEL
+```
+
+bit 1（SPSEL）は0であるため、ThreadモードではMSPが選択されていることが分かります。
+
+GDBでは、SP（R13）の値として、CPUが現在選択しているスタックポインタの値が表示されます。そのため、今回のようにMSPが選択されている場合は、SPとMSPに同じ値が表示されます。
 
 ## 結果と考察
 
@@ -307,15 +329,17 @@ PSP (0xfffffffc) ──┘
 
 一方、今回のMSP初期値は `0x20041f00` であり、SRAMの終了境界より256バイト小さくなっています。
 
-Raspberry Piが公開しているRP2040のBoot ROMソースを確認すると、`bootrom/bootrom.ld` では `_stacktop` が次の式で定義されています。
+Raspberry Piが公開しているRP2040のBoot ROMソースを確認すると、`bootrom/bootrom.ld` では `_stacktop` が次のように定義されています。
 
 ```ld
+/* Leave room above the stack for stage 2 load, so that stage 2
+   can image SRAM from its beginning */
 _stacktop = ORIGIN(SRAM) + LENGTH(SRAM) - 256;
 ```
 
-また、`bootrom/bootrom_rt0.S` では例外ベクタテーブルの先頭に `_stacktop` が設定されています。
+コメントには、セカンドステージのブートローダ（boot2）がSRAMの先頭からプログラムイメージを配置できるように、スタックより上位のアドレスにboot2のロード領域を確保する旨が記述されています。
 
-リンカ・スクリプトのコメントによれば、スタックの上にセカンドステージのブートローダ（boot2）をロードする領域を確保するためのものです。
+また、`bootrom/bootrom_rt0.S` では例外ベクタテーブルの先頭に `_stacktop` が設定されています。
 
 実際に計算すると、次のようになります。
 
@@ -343,9 +367,8 @@ _stacktop = ORIGIN(SRAM) + LENGTH(SRAM) - 256;
 - [pico-bootrom-rp2040 / bootrom.ld](https://github.com/raspberrypi/pico-bootrom-rp2040/blob/master/bootrom/bootrom.ld)
 - [pico-bootrom-rp2040 / bootrom_rt0.S](https://github.com/raspberrypi/pico-bootrom-rp2040/blob/master/bootrom/bootrom_rt0.S)
 
-# デバッグ時の注意点
+# GDBのレジスタキャッシュに関する注意点
 
-## GDBのレジスタキャッシュ
 
 今回、`monitor reset halt` を実行したにもかかわらず、GDBでPCを表示するとTry Kernel側の `Reset_Handler` を指していることがありました。
 
@@ -365,29 +388,6 @@ info registers sp msp psp pc xpsr
 ```
 
 先ほどの実機検証で示したとおり、PCの表示は `0x000000ea` となり、OpenOCDの表示と整合するようになりました。今回の現象はGDBのレジスタキャッシュによるものと考えられます。ただし、ツール内部の詳細な原因までは調査していません。
-
-## loadコマンドとリセットの違い
-
-GDBの `load` はELFファイルの内容をターゲットに書き込むためのデバッグ操作です。
-
-今回使用したELFでは、`load` の実行時に次の出力がありました。
-
-```text
-Start address 0x100007b4, load size 7614
-```
-
-このときPCは `0x100007b4 <Reset_Handler>` を指していました。
-
-書籍P.49では、Boot ROM上の例外ベクタテーブルと外部フラッシュメモリ上のユーザ定義の例外ベクタテーブルは別物であると説明されています。
-
-| リセットハンドラ | 今回確認したアドレス |
-|---|---|
-| Boot ROM側 | `0x000000ea` |
-| Try Kernel側 | `0x100007b4` |
-
-`load` 後のPCを見ても、CPUがリセット時に最初に実行する命令のアドレスは確認できません。
-
-リセット直後のCPUの状態を観察するため、今回は `monitor reset halt` の後に `load` を実行しないようにしました。
 
 # まとめ
 
